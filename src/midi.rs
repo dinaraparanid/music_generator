@@ -1,5 +1,5 @@
 use crate::note_data::NoteData;
-use ghakuf::messages::{Message, MidiEvent};
+use ghakuf::messages::Message;
 use std::time::Duration;
 
 #[inline]
@@ -16,14 +16,7 @@ pub fn get_tempo(bpm: u64) -> u64 {
 pub fn create_chord(mut notes: Vec<NoteData>) -> Vec<Message> {
     let mut result = notes
         .iter()
-        .map(|note_data| Message::MidiEvent {
-            delta_time: 0,
-            event: MidiEvent::NoteOn {
-                ch: 0,
-                note: note_data.get_note().midi(),
-                velocity: note_data.get_velocity(),
-            },
-        })
+        .map(|note_data| note_data.into_on_midi_event(Duration::default()))
         .collect::<Vec<_>>();
 
     notes.sort_by_key(|nd| nd.get_duration());
@@ -33,10 +26,7 @@ pub fn create_chord(mut notes: Vec<NoteData>) -> Vec<Message> {
             .iter()
             .map(|nd| nd.get_duration())
             .scan(
-                (
-                    Duration::from_millis(0), // time offset
-                    Duration::from_millis(0), // previous note duration
-                ),
+                (Duration::default(), Duration::default()),
                 |(time_offset, prev_note_end), cur_note_end| {
                     *time_offset = cur_note_end - *prev_note_end;
                     *prev_note_end = cur_note_end;
@@ -45,14 +35,7 @@ pub fn create_chord(mut notes: Vec<NoteData>) -> Vec<Message> {
             )
             .map(|(time_offset, _)| time_offset)
             .zip(notes.iter())
-            .map(|(end, nd)| Message::MidiEvent {
-                delta_time: end.as_millis() as u32,
-                event: MidiEvent::NoteOff {
-                    ch: 0,
-                    note: nd.get_note().midi(),
-                    velocity: nd.get_velocity(),
-                },
-            }),
+            .map(|(end, nd)| nd.into_off_midi_event(end)),
     );
 
     result
