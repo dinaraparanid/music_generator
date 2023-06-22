@@ -8,3 +8,5 @@ edition = "2021"
 [dependencies]
 rust-music-theory = "0.2.0"
 ghakuf = "0.5.6"
+strum = "0.25.0"
+strum_macros = "0.25.0"
