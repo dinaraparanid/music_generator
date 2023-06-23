@@ -1,7 +1,7 @@
 use strum::IntoEnumIterator;
 use strum_macros::EnumIter;
 
-#[derive(EnumIter, Copy, Clone, Eq, PartialEq, Debug)]
+#[derive(EnumIter, Copy, Clone, Eq, PartialEq, Debug, Hash)]
 pub enum Note {
     C2,
     Db2,

@@ -1,21 +1,26 @@
-use crate::note::Note;
+use crate::notes::note::Note;
 use ghakuf::messages::{Message, MidiEvent};
 use std::time::Duration;
+
+pub type Velocity = u8;
+pub type DeltaTime = u32;
 
 #[derive(Copy, Clone, Eq, PartialEq, Debug)]
 pub struct NoteData {
     note: Note,
-    velocity: u8,
-    duration: Duration,
+    velocity: Velocity,
+    start: Duration,
+    end: Duration,
 }
 
 impl NoteData {
     #[inline]
-    pub fn new(note: Note, velocity: u8, duration: Duration) -> Self {
+    pub fn new(note: Note, velocity: Velocity, start: Duration, end: Duration) -> Self {
         Self {
             note,
             velocity,
-            duration,
+            start,
+            end,
         }
     }
 
@@ -30,14 +35,24 @@ impl NoteData {
     }
 
     #[inline]
+    pub fn get_start(&self) -> Duration {
+        self.start
+    }
+
+    #[inline]
+    pub fn get_end(&self) -> Duration {
+        self.end
+    }
+
+    #[inline]
     pub fn get_duration(&self) -> Duration {
-        self.duration
+        self.end - self.start
     }
 
     #[inline]
     pub fn into_on_midi_event(self, start: Duration) -> Message {
         Message::MidiEvent {
-            delta_time: start.as_millis() as u32,
+            delta_time: start.as_millis() as DeltaTime,
             event: MidiEvent::NoteOn {
                 ch: 0,
                 note: self.note.midi(),
@@ -49,7 +64,7 @@ impl NoteData {
     #[inline]
     pub fn into_off_midi_event(self, end: Duration) -> Message {
         Message::MidiEvent {
-            delta_time: end.as_millis() as u32,
+            delta_time: end.as_millis() as DeltaTime,
             event: MidiEvent::NoteOn {
                 ch: 0,
                 note: self.note.midi(),

@@ -1,30 +1,20 @@
-use crate::note_data::NoteData;
+use crate::notes::ChordData;
 use ghakuf::messages::Message;
 use std::time::Duration;
 
 #[inline]
-pub fn get_bar_time(bpm: u64) -> Duration {
-    Duration::from_millis(240000 / bpm)
-}
-
-#[inline]
-pub fn get_tempo(bpm: u64) -> u64 {
-    60000000 / bpm
-}
-
-#[inline]
-pub fn create_chord(mut notes: Vec<NoteData>) -> Vec<Message> {
-    let mut result = notes
+pub fn create_chord(mut chord: ChordData) -> Vec<Message> {
+    let mut result = chord
         .iter()
-        .map(|note_data| note_data.into_on_midi_event(Duration::default()))
+        .map(|note_data| note_data.into_on_midi_event(note_data.get_start()))
         .collect::<Vec<_>>();
 
-    notes.sort_by_key(|nd| nd.get_duration());
+    chord.sort_by_key(|nd| nd.get_end());
 
     result.extend(
-        notes
+        chord
             .iter()
-            .map(|nd| nd.get_duration())
+            .map(|nd| nd.get_end())
             .scan(
                 (Duration::default(), Duration::default()),
                 |(time_offset, prev_note_end), cur_note_end| {
@@ -34,7 +24,7 @@ pub fn create_chord(mut notes: Vec<NoteData>) -> Vec<Message> {
                 },
             )
             .map(|(time_offset, _)| time_offset)
-            .zip(notes.iter())
+            .zip(chord.iter())
             .map(|(end, nd)| nd.into_off_midi_event(end)),
     );
 
