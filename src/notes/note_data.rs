@@ -5,7 +5,7 @@ use std::time::Duration;
 pub type Velocity = u8;
 pub type DeltaTime = u32;
 
-#[derive(Copy, Clone, Eq, PartialEq, Debug)]
+#[derive(Copy, Clone, Eq, PartialEq, Debug, Hash)]
 pub struct NoteData {
     note: Note,
     velocity: Velocity,
@@ -79,5 +79,58 @@ impl NoteData {
             self.into_on_midi_event(start),
             self.into_off_midi_event(end),
         )
+    }
+
+    #[inline]
+    pub fn clone_with_new_note(&self, note: Note) -> Self {
+        Self::new(note, self.velocity, self.start, self.end)
+    }
+
+    #[inline]
+    pub fn up(&self, semitones: u8) -> Option<Self> {
+        self.note
+            .up(semitones)
+            .map(|note| self.clone_with_new_note(note))
+    }
+
+    #[inline]
+    pub unsafe fn up_unchecked(&self, semitones: u8) -> Self {
+        self.up(semitones).unwrap_unchecked()
+    }
+
+    #[inline]
+    pub fn down(&self, semitones: u8) -> Option<Self> {
+        self.note
+            .down(semitones)
+            .map(|note| self.clone_with_new_note(note))
+    }
+
+    #[inline]
+    pub unsafe fn down_unchecked(&self, semitones: u8) -> Self {
+        self.down(semitones).unwrap_unchecked()
+    }
+
+    #[inline]
+    pub fn octave_up(&self) -> Option<Self> {
+        self.note
+            .octave_up()
+            .map(|note| self.clone_with_new_note(note))
+    }
+
+    #[inline]
+    pub unsafe fn octave_up_unchecked(&self) -> Self {
+        self.octave_up().unwrap_unchecked()
+    }
+
+    #[inline]
+    pub fn octave_down(&self) -> Option<Self> {
+        self.note
+            .octave_down()
+            .map(|note| self.clone_with_new_note(note))
+    }
+
+    #[inline]
+    pub unsafe fn octave_down_unchecked(&self) -> Self {
+        self.octave_down().unwrap_unchecked()
     }
 }

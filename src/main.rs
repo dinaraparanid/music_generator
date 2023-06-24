@@ -8,10 +8,10 @@ use music_generator::{
     notes::{note::Note, note_data::NoteData},
 };
 
-use std::path::Path;
-use std::time::Duration;
+use std::{path::Path, time::Duration};
 
-fn main() -> Result<(), Box<dyn std::error::Error>> {
+#[monoio::main]
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let bpm = 90;
     let bar_time = bpm.get_bar_time();
     let tempo = bpm.get_tempo();
