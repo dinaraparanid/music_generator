@@ -4,7 +4,7 @@ use ghakuf::{
 };
 
 use music_generator::{
-    midi::{bpm::BPM, composer::create_chord},
+    midi::{bpm::BPM, generator::composer::create_chord},
     notes::{note::Note, note_data::NoteData},
 };
 

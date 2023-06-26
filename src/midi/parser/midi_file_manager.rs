@@ -23,7 +23,7 @@ pub async fn extract_leads() -> Result<Vec<Vec<NoteData>>, Box<dyn std::error::E
 
     let tasks = std::fs::read_dir(lead_path)?
         .into_iter()
-        .map(|file_res| to_file_opt(file_res))
+        .map(to_file_opt)
         .map(|file_opt| {
             monoio::spawn(async {
                 file_opt.map(|lead_file| {
@@ -57,7 +57,7 @@ pub async fn extract_chords() -> Result<Vec<Vec<ChordData>>, Box<dyn std::error:
 
     let tasks = std::fs::read_dir(chords_path)?
         .into_iter()
-        .map(|file_res| to_file_opt(file_res))
+        .map(to_file_opt)
         .map(|file_opt| {
             monoio::spawn(async {
                 file_opt.map(|chord_file| {

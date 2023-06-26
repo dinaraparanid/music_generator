@@ -1,3 +1,3 @@
 pub mod bpm;
-pub mod composer;
+pub mod generator;
 pub mod parser;
