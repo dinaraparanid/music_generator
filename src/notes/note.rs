@@ -4,6 +4,21 @@ use strum_macros::EnumIter;
 
 #[derive(EnumIter, Copy, Clone, Eq, PartialEq, Debug, Hash)]
 pub enum Note {
+    A0,
+    Bb0,
+    B0,
+    C1,
+    Db1,
+    D1,
+    Eb1,
+    E1,
+    F1,
+    Gb1,
+    G1,
+    Ab1,
+    A1,
+    Bb1,
+    B1,
     C2,
     Db2,
     D2,
@@ -63,12 +78,43 @@ pub enum Note {
     Ab6,
     A6,
     Bb6,
+    C7,
+    Db7,
+    D7,
+    Eb7,
+    E7,
+    F7,
+    Gb7,
+    G7,
+    Ab7,
+    A7,
+    Bb7,
+    C8,
+    Db8,
+    D8,
+    Eb8,
+    E8,
+    F8,
+    Gb8,
+    G8,
+    Ab8,
+    A8,
+    Bb8,
+    C9,
+    Db9,
+    D9,
+    Eb9,
+    E9,
+    F9,
+    Gb9,
+    G9,
+    Ab9,
 }
 
 impl Note {
     #[inline]
     fn midi_iter() -> Zip<NoteIter, RangeFrom<u8>> {
-        Self::iter().zip(36..)
+        Self::iter().zip(21..)
     }
 
     #[inline]

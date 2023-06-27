@@ -5,13 +5,13 @@ use crate::{
 
 use ghakuf::messages::{Message, MetaEvent};
 use rand::prelude::SliceRandom;
-use std::{collections::HashMap, hash::Hash, time::Duration};
+use std::{collections::HashMap, hash::Hash};
 
 #[inline]
 pub fn create_note(note: NoteData) -> Vec<Message> {
     vec![
         note.into_on_midi_event(note.get_start()),
-        note.into_off_midi_event(note.get_end()),
+        note.into_off_midi_event(note.get_length()),
     ]
 }
 
@@ -22,20 +22,17 @@ pub fn create_chord(mut chord: ChordData) -> Vec<Message> {
         .map(|note_data| note_data.into_on_midi_event(note_data.get_start()))
         .collect::<Vec<_>>();
 
-    chord.sort_by_key(|nd| nd.get_end());
+    chord.sort_by_key(|nd| nd.get_length());
 
     result.extend(
         chord
             .iter()
-            .map(|nd| nd.get_end())
-            .scan(
-                (Duration::default(), Duration::default()),
-                |(time_offset, prev_note_end), cur_note_end| {
-                    *time_offset = cur_note_end - *prev_note_end;
-                    *prev_note_end = cur_note_end;
-                    Some((*time_offset, *prev_note_end))
-                },
-            )
+            .map(|nd| nd.get_length())
+            .scan((0, 0), |(time_offset, prev_note_end), cur_note_end| {
+                *time_offset = cur_note_end - *prev_note_end;
+                *prev_note_end = cur_note_end;
+                Some((*time_offset, *prev_note_end))
+            })
             .map(|(time_offset, _)| time_offset)
             .zip(chord.iter())
             .map(|(end, nd)| nd.into_off_midi_event(end)),
@@ -73,7 +70,7 @@ where
     write_messages.extend(
         (1..8)
             .map(|_| {
-                let mut second_parts = midi_data.get(&prev_part).unwrap().iter().fold(
+                let mut second_parts = midi_data.get(&prev_part)?.iter().fold(
                     vec![],
                     |mut acc, (second_note, &times)| {
                         acc.extend(vec![second_note.clone(); times as usize]);

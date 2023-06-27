@@ -1,6 +1,6 @@
 use crate::notes::note::Note;
 use ghakuf::messages::{Message, MidiEvent};
-use std::time::Duration;
+use std::cmp::Ordering;
 
 pub type Velocity = u8;
 pub type DeltaTime = u32;
@@ -9,18 +9,18 @@ pub type DeltaTime = u32;
 pub struct NoteData {
     note: Note,
     velocity: Velocity,
-    start: Duration,
-    end: Duration,
+    start: DeltaTime,
+    length: DeltaTime,
 }
 
 impl NoteData {
     #[inline]
-    pub fn new(note: Note, velocity: Velocity, start: Duration, end: Duration) -> Self {
+    pub fn new(note: Note, velocity: Velocity, start: DeltaTime, length: DeltaTime) -> Self {
         Self {
             note,
             velocity,
             start,
-            end,
+            length,
         }
     }
 
@@ -35,24 +35,19 @@ impl NoteData {
     }
 
     #[inline]
-    pub fn get_start(&self) -> Duration {
+    pub fn get_start(&self) -> DeltaTime {
         self.start
     }
 
     #[inline]
-    pub fn get_end(&self) -> Duration {
-        self.end
+    pub fn get_length(&self) -> DeltaTime {
+        self.length
     }
 
     #[inline]
-    pub fn get_duration(&self) -> Duration {
-        self.end - self.start
-    }
-
-    #[inline]
-    pub fn into_on_midi_event(self, start: Duration) -> Message {
+    pub fn into_on_midi_event(self, start: DeltaTime) -> Message {
         Message::MidiEvent {
-            delta_time: start.as_millis() as DeltaTime,
+            delta_time: start,
             event: MidiEvent::NoteOn {
                 ch: 0,
                 note: self.note.midi(),
@@ -62,10 +57,10 @@ impl NoteData {
     }
 
     #[inline]
-    pub fn into_off_midi_event(self, end: Duration) -> Message {
+    pub fn into_off_midi_event(self, end: DeltaTime) -> Message {
         Message::MidiEvent {
-            delta_time: end.as_millis() as DeltaTime,
-            event: MidiEvent::NoteOn {
+            delta_time: end,
+            event: MidiEvent::NoteOff {
                 ch: 0,
                 note: self.note.midi(),
                 velocity: self.velocity,
@@ -74,7 +69,7 @@ impl NoteData {
     }
 
     #[inline]
-    pub fn into_on_off_midi_events(self, start: Duration, end: Duration) -> (Message, Message) {
+    pub fn into_on_off_midi_events(self, start: DeltaTime, end: DeltaTime) -> (Message, Message) {
         (
             self.into_on_midi_event(start),
             self.into_off_midi_event(end),
@@ -83,7 +78,7 @@ impl NoteData {
 
     #[inline]
     pub fn clone_with_new_note(&self, note: Note) -> Self {
-        Self::new(note, self.velocity, self.start, self.end)
+        Self::new(note, self.velocity, self.start, self.length)
     }
 
     #[inline]
@@ -132,5 +127,25 @@ impl NoteData {
     #[inline]
     pub unsafe fn octave_down_unchecked(&self) -> Self {
         self.octave_down().unwrap_unchecked()
+    }
+}
+
+impl PartialOrd for NoteData {
+    #[inline]
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        let start_cmp = self.start.cmp(&other.start);
+
+        if start_cmp != Ordering::Equal {
+            return Some(start_cmp);
+        }
+
+        Some(self.note.cmp(&other.note))
+    }
+}
+
+impl Ord for NoteData {
+    #[inline]
+    fn cmp(&self, other: &Self) -> Ordering {
+        unsafe { self.partial_cmp(other).unwrap_unchecked() }
     }
 }
