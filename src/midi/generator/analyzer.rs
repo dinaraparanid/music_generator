@@ -1,7 +1,7 @@
 use std::{collections::HashMap, hash::Hash};
 
 #[inline]
-fn analyze_midi<T>(midi_data: Vec<Vec<T>>) -> HashMap<T, HashMap<T, u32>>
+pub fn analyze_midi<T>(midi_data: Vec<Vec<T>>) -> HashMap<T, HashMap<T, u32>>
 where
     T: Eq + Hash + Clone,
 {

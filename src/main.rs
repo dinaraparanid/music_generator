@@ -1,72 +1,25 @@
-use ghakuf::{
-    messages::{Message, MetaEvent, MidiEvent},
-    writer::Writer,
+use ghakuf::writer::Writer;
+
+use music_generator::midi::{
+    generator::{analyzer::analyze_midi, composer::*},
+    parser::midi_file_manager::*,
 };
 
-use music_generator::{
-    midi::{bpm::BPM, generator::composer::create_chord},
-    notes::{note::Note, note_data::NoteData},
-};
-
-use std::{path::Path, time::Duration};
+use std::path::Path;
 
 #[monoio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let bpm = 90;
-    let bar_time = bpm.get_bar_time();
-    let tempo = bpm.get_tempo();
-
-    let mut write_messages = vec![Message::MetaEvent {
-        delta_time: 0,
-        event: MetaEvent::SetTempo,
-        data: [(tempo >> 16) as u8, (tempo >> 8) as u8, tempo as u8].to_vec(),
-    }];
-
-    let zero_duration = Duration::default();
-
-    (0..=127).for_each(|i| {
-        write_messages.push(Message::MidiEvent {
-            delta_time: 0,
-            event: MidiEvent::ProgramChange { ch: 0, program: i },
-        });
-
-        write_messages.extend(create_chord(vec![
-            NoteData::new(Note::Gb4, 100, zero_duration, bar_time),
-            NoteData::new(Note::A4, 100, zero_duration, bar_time),
-            NoteData::new(Note::Db5, 100, zero_duration, bar_time),
-        ]));
-
-        write_messages.extend(create_chord(vec![
-            NoteData::new(Note::Db4, 100, zero_duration, bar_time),
-            NoteData::new(Note::E4, 100, zero_duration, bar_time),
-            NoteData::new(Note::Ab4, 100, zero_duration, bar_time),
-        ]));
-
-        write_messages.extend(create_chord(vec![
-            NoteData::new(Note::Db4, 100, zero_duration, bar_time),
-            NoteData::new(Note::E4, 100, zero_duration, bar_time),
-            NoteData::new(Note::Ab4, 100, zero_duration, bar_time),
-            NoteData::new(Note::B4, 100, zero_duration, bar_time),
-        ]));
-
-        write_messages.extend(create_chord(vec![
-            NoteData::new(Note::Eb4, 100, zero_duration, bar_time),
-            NoteData::new(Note::Gb4, 100, zero_duration, bar_time),
-            NoteData::new(Note::A4, 100, zero_duration, bar_time),
-        ]))
-    });
-
-    write_messages.push(Message::MetaEvent {
-        delta_time: 0,
-        event: MetaEvent::EndOfTrack,
-        data: Vec::new(),
-    });
-
     let path = Path::new("./example.mid");
     let mut writer = Writer::new();
 
     writer.running_status(true);
-    write_messages.iter().for_each(|m| writer.push(m));
+
+    let generated_lead =
+        generate_from_midi_analyze(analyze_midi(extract_leads().await?), create_note)
+            .expect("Lead folder is empty");
+
+    generated_lead.iter().for_each(|m| writer.push(m));
+
     writer.write(&path)?;
     Ok(())
 }

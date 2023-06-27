@@ -45,15 +45,15 @@ pub fn create_chord(mut chord: ChordData) -> Vec<Message> {
 }
 
 #[inline]
-pub fn generate_from_leads_analyze<T, G>(
+pub fn generate_from_midi_analyze<T, G>(
     midi_data: HashMap<T, HashMap<T, u32>>,
     generator: G,
-) -> Vec<Message>
+) -> Option<Vec<Message>>
 where
     T: Eq + Hash + Clone,
-    G: Fn(&T) -> Vec<Message>,
+    G: Fn(T) -> Vec<Message>,
 {
-    let bpm = 90;
+    let bpm = 90; // TODO: change BPM
     let tempo = bpm.get_tempo();
 
     let mut write_messages = vec![Message::MetaEvent {
@@ -62,30 +62,33 @@ where
         data: [(tempo >> 16) as u8, (tempo >> 8) as u8, tempo as u8].to_vec(),
     }];
 
-    let mut first_notes = midi_data.keys().map(|nd| nd.clone()).collect::<Vec<_>>();
+    let mut first_parts = midi_data.keys().map(|nd| nd.clone()).collect::<Vec<_>>();
     let mut rng = rand::thread_rng();
-    first_notes.shuffle(&mut rng);
+    first_parts.shuffle(&mut rng);
 
-    let first_note = first_notes[0].clone();
-    let mut prev_note = first_note.clone();
-    write_messages.extend(generator(&first_note));
+    let first_part = first_parts.first()?.clone();
+    let mut prev_part = first_part.clone();
+    write_messages.extend(generator(first_part));
 
-    (1..=8)
-        .map(|_| {
-            let mut second_notes = midi_data.get(&prev_note).unwrap().iter().fold(
-                vec![],
-                |mut acc, (second_note, &times)| {
-                    acc.extend(vec![second_note.clone(); times as usize]);
-                    acc
-                },
-            );
+    write_messages.extend(
+        (1..8)
+            .map(|_| {
+                let mut second_parts = midi_data.get(&prev_part).unwrap().iter().fold(
+                    vec![],
+                    |mut acc, (second_note, &times)| {
+                        acc.extend(vec![second_note.clone(); times as usize]);
+                        acc
+                    },
+                );
 
-            second_notes.shuffle(&mut rng);
+                second_parts.shuffle(&mut rng);
 
-            prev_note = second_notes[0].clone();
-            second_notes[0].clone()
-        })
-        .for_each(|note| write_messages.extend(generator(&note)));
+                prev_part = second_parts.first()?.clone();
+                Some(second_parts.first()?.clone())
+            })
+            .filter_map(|part_opt| part_opt.map(|part| generator(part)))
+            .flatten(),
+    );
 
     write_messages.push(Message::MetaEvent {
         delta_time: 0,
@@ -93,5 +96,5 @@ where
         data: Vec::new(),
     });
 
-    write_messages
+    Some(write_messages)
 }
