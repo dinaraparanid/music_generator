@@ -11,3 +11,4 @@ strum = "0.25.0"
 strum_macros = "0.25.0"
 monoio = "0.1.4"
 rand = {version="0.8.5", features=["std", "std_rng"]}
+rust-music-theory = "0.2.0"

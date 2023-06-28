@@ -1,3 +1,4 @@
+use rust_music_theory::note::{Note as MTNote, PitchClass};
 use std::{cmp::Ordering, iter::Zip, ops::RangeFrom};
 use strum::IntoEnumIterator;
 use strum_macros::EnumIter;
@@ -113,7 +114,7 @@ pub enum Note {
 
 impl Note {
     #[inline]
-    fn midi_iter() -> Zip<NoteIter, RangeFrom<u8>> {
+    pub fn midi_iter() -> Zip<NoteIter, RangeFrom<u8>> {
         Self::iter().zip(21..)
     }
 
@@ -177,6 +178,29 @@ impl From<u8> for Note {
     #[inline]
     fn from(value: u8) -> Self {
         Self::from_byte_or_none(value).expect("Illegal MIDI value when converting from u8 to Note")
+    }
+}
+
+impl From<MTNote> for Note {
+    #[inline]
+    fn from(value: MTNote) -> Self {
+        Self::from(
+            (value.octave + 1) * 12
+                + match value.pitch_class {
+                    PitchClass::C => 0,
+                    PitchClass::Cs => 1,
+                    PitchClass::D => 2,
+                    PitchClass::Ds => 3,
+                    PitchClass::E => 4,
+                    PitchClass::F => 5,
+                    PitchClass::Fs => 6,
+                    PitchClass::G => 7,
+                    PitchClass::Gs => 8,
+                    PitchClass::A => 9,
+                    PitchClass::As => 10,
+                    PitchClass::B => 11,
+                },
+        )
     }
 }
 

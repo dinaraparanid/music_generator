@@ -1,6 +1,13 @@
-use crate::notes::{note_data::NoteData, ChordData};
+use crate::{
+    midi::bpm::BPM,
+    notes::{note::Note, note_data::*, ChordData},
+};
+
 use ghakuf::messages::Message;
 use rand::{prelude::SliceRandom, Rng};
+
+use rust_music_theory::note::PitchClass;
+
 use std::{collections::HashMap, hash::Hash};
 
 #[inline]
@@ -38,6 +45,81 @@ pub fn create_chord(mut chord: ChordData) -> Vec<Message> {
     );
 
     result
+}
+
+#[inline]
+pub fn generate_key(
+    analyzed_melody_notes: &HashMap<NoteData, HashMap<NoteData, u32>>,
+) -> Option<PitchClass> {
+    let mut rng = rand::thread_rng();
+
+    let mut first_notes = analyzed_melody_notes
+        .keys()
+        .map(|&note| note)
+        .collect::<Vec<_>>();
+
+    first_notes.shuffle(&mut rng);
+    first_notes.into_iter().next().map(PitchClass::from)
+}
+
+#[inline]
+pub fn generate_lead_from_analyze<C: Fn(NoteData) -> Vec<Message>>(
+    scale_notes: Vec<Note>,
+    analyzed_melody_notes: &HashMap<NoteData, HashMap<NoteData, u32>>,
+    composer: C,
+) -> Option<Vec<Message>> {
+    let bpm = 100;
+    let bar_time = bpm.get_bar_time().as_millis() as DeltaTime;
+
+    let mut rng = rand::thread_rng();
+
+    let mut first_notes = analyzed_melody_notes
+        .keys()
+        .filter(|&note| scale_notes.contains(&note.get_note()))
+        .map(|&note| note)
+        .collect::<Vec<_>>();
+
+    let mut write_messages = Vec::new();
+
+    while write_messages.len() < 50 {
+        first_notes.shuffle(&mut rng);
+
+        let first_note = *first_notes.iter().next()?;
+        let mut prev_note = first_note;
+
+        write_messages.extend(composer(first_note));
+
+        write_messages.extend(
+            (1..50)
+                .map(|_| {
+                    let mut second_notes = analyzed_melody_notes
+                        .get(&prev_note)?
+                        .iter()
+                        .filter(|(note, _)| scale_notes.contains(&note.get_note()))
+                        .fold(vec![], |mut acc, (second_note, &times)| {
+                            acc.extend(vec![second_note.clone(); times as usize]);
+                            acc
+                        });
+
+                    second_notes.shuffle(&mut rng);
+
+                    prev_note = *second_notes.first()?;
+                    Some(prev_note)
+                })
+                .take_while(|note_opt| note_opt.is_some())
+                .filter_map(|part_opt| part_opt.map(|note| composer(note)))
+                .flatten(),
+        );
+    }
+
+    let tonic_end = write_messages
+        .iter()
+        .map(|msg| msg.clone())
+        .take(2)
+        .collect::<Vec<_>>();
+
+    write_messages.extend(tonic_end.into_iter());
+    Some(write_messages)
 }
 
 #[inline]
