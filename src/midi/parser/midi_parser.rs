@@ -4,7 +4,7 @@ use std::collections::{BTreeMap, HashMap};
 
 #[derive(Debug, Default)]
 pub struct MidiParser {
-    notes: BTreeMap<Note, Vec<(Velocity, (DeltaTime, DeltaTime))>>,
+    notes: BTreeMap<Note, Vec<(Velocity, (DeltaTime, DeltaTime, DeltaTime))>>,
     delta_timer: DeltaTime,
     notes_on_hash: HashMap<Note, (Velocity, DeltaTime)>,
 }
@@ -27,7 +27,7 @@ impl MidiParser {
             .map(|(note, plays)| {
                 plays
                     .into_iter()
-                    .map(|(vel, (start, len))| NoteData::new(note, vel, start, len))
+                    .map(|(vel, (start, len, delay))| NoteData::new(note, vel, start, len, delay))
                     .collect::<Vec<_>>()
             })
             .flatten()
@@ -66,7 +66,7 @@ impl Handler for MidiParser {
                 self.notes
                     .entry(note)
                     .or_insert(Vec::new())
-                    .push((vel, (start, self.delta_timer - start)))
+                    .push((vel, (start, self.delta_timer - start, delta_time)))
             }
 
             _ => {}

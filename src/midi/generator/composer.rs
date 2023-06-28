@@ -1,23 +1,20 @@
 use crate::{
-    midi::bpm::BPM,
+    midi::{bpm::BPM, generator::analyzer::AnalyzedNotes},
     notes::{note::Note, note_data::*, ChordData},
 };
 
 use ghakuf::messages::Message;
 use rand::{prelude::SliceRandom, Rng};
-
-use rust_music_theory::note::PitchClass;
-
+use rust_music_theory::note::{Note as MTNote, PitchClass};
 use std::{collections::HashMap, hash::Hash};
 
 #[inline]
-pub fn generate_note(note: NoteData) -> Vec<Message> {
-    let mut rng = rand::thread_rng();
-    let delay = rng.gen_range(0..500);
+pub fn generate_note(note: NoteData, delay: DeltaTime, length: DeltaTime) -> Vec<Message> {
+    println!("{:?}", note.get_note());
 
     vec![
         note.into_on_midi_event(delay),
-        note.into_off_midi_event(delay + note.get_length()),
+        note.into_off_midi_event(delay + length),
     ]
 }
 
@@ -48,9 +45,7 @@ pub fn create_chord(mut chord: ChordData) -> Vec<Message> {
 }
 
 #[inline]
-pub fn generate_key(
-    analyzed_melody_notes: &HashMap<NoteData, HashMap<NoteData, u32>>,
-) -> Option<PitchClass> {
+pub fn generate_key(analyzed_melody_notes: &AnalyzedNotes) -> Option<PitchClass> {
     let mut rng = rand::thread_rng();
 
     let mut first_notes = analyzed_melody_notes
@@ -63,63 +58,122 @@ pub fn generate_key(
 }
 
 #[inline]
-pub fn generate_lead_from_analyze<C: Fn(NoteData) -> Vec<Message>>(
+fn get_bar_ratio(bar_time: DeltaTime, ratio: u32) -> DeltaTime {
+    bar_time / 16 * ratio
+}
+
+#[inline]
+fn generate_melody_ratios(bar_time: DeltaTime) -> Vec<(DeltaTime, DeltaTime)> {
+    let mut rng = rand::thread_rng();
+    let melody_len = rng.gen_range(3..=8);
+
+    let mut delays = (0..=2).collect::<Vec<_>>();
+    let mut lengths = (1..=2).collect::<Vec<_>>();
+
+    (0..melody_len)
+        .map(|_| {
+            delays.shuffle(&mut rng);
+            lengths.shuffle(&mut rng);
+
+            (
+                get_bar_ratio(bar_time, *delays.first().unwrap()),
+                get_bar_ratio(bar_time, *lengths.first().unwrap()),
+            )
+        })
+        .collect()
+}
+
+#[inline]
+pub fn generate_lead_from_analyze<C>(
+    key: PitchClass,
     scale_notes: Vec<Note>,
-    analyzed_melody_notes: &HashMap<NoteData, HashMap<NoteData, u32>>,
+    analyzed_notes: &AnalyzedNotes,
+    notes_to_data: HashMap<Note, Vec<NoteData>>,
     composer: C,
-) -> Option<Vec<Message>> {
+) -> Option<Vec<Message>>
+where
+    C: Fn(NoteData, DeltaTime, DeltaTime) -> Vec<Message>,
+{
     let bpm = 100;
     let bar_time = bpm.get_bar_time().as_millis() as DeltaTime;
+    let melody_ratios = generate_melody_ratios(bar_time);
 
     let mut rng = rand::thread_rng();
 
-    let mut first_notes = analyzed_melody_notes
+    let mut first_notes = analyzed_notes
         .keys()
-        .filter(|&note| scale_notes.contains(&note.get_note()))
+        .filter(|&note| scale_notes.contains(note))
         .map(|&note| note)
         .collect::<Vec<_>>();
 
     let mut write_messages = Vec::new();
+    let mut current_note_index = 0;
 
-    while write_messages.len() < 50 {
+    while write_messages.len() < melody_ratios.len() * 2 {
         first_notes.shuffle(&mut rng);
 
         let first_note = *first_notes.iter().next()?;
-        let mut prev_note = first_note;
+        let mut first_note_datas = notes_to_data.get(&first_note)?.clone();
+        first_note_datas.shuffle(&mut rng);
 
-        write_messages.extend(composer(first_note));
+        let first_note_data = first_note_datas.into_iter().next()?;
+        current_note_index = (current_note_index + 1) % melody_ratios.len();
+        let (delay, len) = melody_ratios[current_note_index];
+        write_messages.extend(composer(first_note_data, delay, len));
 
         write_messages.extend(
-            (1..50)
-                .map(|_| {
-                    let mut second_notes = analyzed_melody_notes
-                        .get(&prev_note)?
+            (1..melody_ratios.len())
+                .scan(first_note, |prev_note, _| {
+                    let mut second_notes = analyzed_notes
+                        .get(prev_note)?
                         .iter()
-                        .filter(|(note, _)| scale_notes.contains(&note.get_note()))
-                        .fold(vec![], |mut acc, (second_note, &times)| {
-                            acc.extend(vec![second_note.clone(); times as usize]);
+                        .filter(|&(note, _)| scale_notes.contains(note))
+                        .fold(vec![], |mut acc, (&second_note, &times)| {
+                            acc.extend(vec![second_note; times as usize]);
                             acc
                         });
 
+                    let mut rng = rand::thread_rng();
                     second_notes.shuffle(&mut rng);
+                    *prev_note = *second_notes.first()?;
+                    Some(*prev_note)
+                })
+                .map(|second_note| {
+                    let mut rng = rand::thread_rng();
+                    let mut second_note_datas = notes_to_data.get(&second_note)?.clone();
+                    second_note_datas.shuffle(&mut rng);
 
-                    prev_note = *second_notes.first()?;
-                    Some(prev_note)
+                    let next_note = second_note_datas.into_iter().next()?;
+                    Some(next_note)
                 })
                 .take_while(|note_opt| note_opt.is_some())
-                .filter_map(|part_opt| part_opt.map(|note| composer(note)))
+                .filter_map(|note_opt| {
+                    current_note_index = (current_note_index + 1) % melody_ratios.len();
+                    let (delay, len) = melody_ratios[current_note_index];
+                    note_opt.map(|note| composer(note, delay, len))
+                })
                 .flatten(),
         );
+
+        current_note_index = (current_note_index + 1) % melody_ratios.len();
+        let (delay, len) = melody_ratios[current_note_index];
+        write_messages.extend(generate_tonic_lead_note(key, &notes_to_data, delay, len)?);
     }
 
-    let tonic_end = write_messages
-        .iter()
-        .map(|msg| msg.clone())
-        .take(2)
-        .collect::<Vec<_>>();
-
-    write_messages.extend(tonic_end.into_iter());
     Some(write_messages)
+}
+
+#[inline]
+fn generate_tonic_lead_note(
+    key: PitchClass,
+    notes_to_data: &HashMap<Note, Vec<NoteData>>,
+    delay: DeltaTime,
+    length: DeltaTime,
+) -> Option<Vec<Message>> {
+    let mut rng = rand::thread_rng();
+    let mut note_datas = notes_to_data.get(&Note::from(MTNote::new(key, 5)))?.clone();
+    note_datas.shuffle(&mut rng);
+    Some(generate_note(*note_datas.iter().next()?, delay, length))
 }
 
 #[inline]

@@ -11,16 +11,24 @@ pub struct NoteData {
     velocity: Velocity,
     start: DeltaTime,
     length: DeltaTime,
+    delay: DeltaTime,
 }
 
 impl NoteData {
     #[inline]
-    pub fn new(note: Note, velocity: Velocity, start: DeltaTime, length: DeltaTime) -> Self {
+    pub fn new(
+        note: Note,
+        velocity: Velocity,
+        start: DeltaTime,
+        length: DeltaTime,
+        delay: DeltaTime,
+    ) -> Self {
         Self {
             note,
             velocity,
             start,
             length,
+            delay,
         }
     }
 
@@ -45,13 +53,18 @@ impl NoteData {
     }
 
     #[inline]
+    pub fn get_delay(&self) -> DeltaTime {
+        self.delay
+    }
+
+    #[inline]
     pub fn into_on_midi_event(self, start: DeltaTime) -> Message {
         Message::MidiEvent {
             delta_time: start,
             event: MidiEvent::NoteOn {
                 ch: 0,
                 note: self.note.midi(),
-                velocity: self.velocity,
+                velocity: 100,
             },
         }
     }
@@ -78,7 +91,7 @@ impl NoteData {
 
     #[inline]
     pub fn clone_with_new_note(&self, note: Note) -> Self {
-        Self::new(note, self.velocity, self.start, self.length)
+        Self::new(note, self.velocity, self.start, self.length, self.delay)
     }
 
     #[inline]
