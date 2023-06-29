@@ -5,6 +5,7 @@ use crate::{
 
 use astro_float::{ctx::Context, Consts, RoundingMode};
 use ghakuf::messages::Message;
+use itertools::Itertools;
 use rand::{prelude::SliceRandom, Rng};
 use rust_music_theory::note::{Note as MTNote, PitchClass};
 use std::collections::HashMap;
@@ -24,14 +25,22 @@ fn generate_melody_length() -> u32 {
 }
 
 #[inline]
-fn pi_numbers(from: usize, to: usize) -> Vec<u8> {
+fn pi_numbers(from: usize, len: usize) -> Vec<u32> {
     let pi = Context::new(1024 * 1024, RoundingMode::ToEven, Consts::new().unwrap()).const_pi();
     let pi = pi.mantissa_digits().unwrap();
 
     pi.into_iter()
         .skip(from)
-        .take(to - from)
-        .map(|&x| x as u8)
+        .take(len)
+        .map(|&x| (x % 10) as u32)
+        .collect()
+}
+
+#[inline]
+fn generate_with_pi(len: usize) -> Vec<u32> {
+    pi_numbers(rand::thread_rng().gen::<usize>() % 200, len)
+        .into_iter()
+        .unique()
         .collect()
 }
 
@@ -70,11 +79,11 @@ pub fn generate_lead_from_analyze(
     analyzed_notes: &AnalyzedNotes,
     mut notes_to_data: HashMap<Note, Vec<NoteData>>,
 ) -> Option<(impl BPM, Vec<NoteData>)> {
-    let bpm = 100;
+    let mut rng = rand::thread_rng();
+    let bpm = rng.gen_range(90..140);
+
     let bar_time = bpm.get_bar_time().as_millis() as DeltaTime;
     let melody_len = generate_melody_length();
-
-    let mut rng = rand::thread_rng();
 
     let mut first_notes = analyzed_notes
         .keys()
@@ -88,13 +97,18 @@ pub fn generate_lead_from_analyze(
     let first_note_datas = notes_to_data.get_mut(&first_note)?;
     first_note_datas.shuffle(&mut rng);
 
-    let lengths = (1..=8)
+    let lengths = generate_with_pi(rng.gen::<usize>() % 10 + 4)
+        .into_iter()
+        .filter(|&l| l >= 1 && l <= 8)
         .map(|l| get_bar_ratio(bar_time, l))
         .collect::<Vec<_>>();
 
     println!("LENGTHS: {:?}", lengths);
 
-    let delays = (0..=4)
+    let delays = generate_with_pi(rng.gen::<usize>() % 10 + 4)
+        .into_iter()
+        .filter(|&d| d <= 4)
+        .unique()
         .map(|d| get_bar_ratio(bar_time, d))
         .collect::<Vec<_>>();
 
@@ -197,9 +211,15 @@ where
     C: Fn(NoteData) -> Vec<Message>,
 {
     let mut rng = rand::thread_rng();
-    let mut delays = (4..=8).collect::<Vec<_>>();
+
+    let mut delays = generate_with_pi(rng.gen::<usize>() % 10 + 4)
+        .into_iter()
+        .filter(|&l| l >= 4 && l <= 8)
+        .unique()
+        .collect::<Vec<_>>();
 
     delays.shuffle(&mut rng);
+
     let delay = generated_lead[0].get_delay() + get_bar_ratio(bar_time, *delays.first().unwrap());
     println!("DELAY: {}", delay);
 
@@ -226,7 +246,7 @@ where
 fn randomize_lead(generated_lead: Vec<NoteData>, scale_notes: &Vec<Note>) -> Vec<NoteData> {
     let mut rng = rand::thread_rng();
     let direction = rng.gen::<u32>() % 2;
-    let semitones = rng.gen_range(0..=4);
+    let semitones = (generate_with_pi(1).into_iter().next().unwrap() % 5) as u8;
 
     generated_lead
         .into_iter()

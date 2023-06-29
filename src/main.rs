@@ -9,12 +9,13 @@ use music_generator::{
     notes::{note::Note, note_data::*},
 };
 
+use ghakuf::messages::{Message, MetaEvent};
 use rust_music_theory::{note::Notes, scale::*};
+use std::time::{SystemTime, UNIX_EPOCH};
 use std::{collections::HashMap, path::Path};
 
 #[monoio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let path = Path::new("./example.mid");
     let mut writer = Writer::new();
 
     writer.running_status(true);
@@ -63,6 +64,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         generate_lead_from_analyze(key, &scale_notes, &analyzed_melody_notes, notes_to_data)
             .expect("Not enough data. Try again");
 
+    println!("BPM: {}", bpm);
     println!("NOTES: {:?}", generated_lead);
 
     let midi_messages = compose_lead_from_generated(
@@ -72,7 +74,33 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         compose_note,
     );
 
+    let tempo = bpm.get_tempo();
+
+    let tempo_msg = Message::MetaEvent {
+        delta_time: 0,
+        event: MetaEvent::SetTempo,
+        data: [(tempo >> 16) as u8, (tempo >> 8) as u8, tempo as u8].to_vec(),
+    };
+
+    writer.push(&tempo_msg);
     midi_messages.iter().for_each(|m| writer.push(m));
+
+    let end_of_melody = Message::MetaEvent {
+        delta_time: 0,
+        event: MetaEvent::EndOfTrack,
+        data: Vec::new(),
+    };
+
+    writer.push(&end_of_melody);
+
+    let path = format!(
+        "./generated/{}-{:?}.mid",
+        key,
+        SystemTime::now().duration_since(UNIX_EPOCH).unwrap()
+    );
+
+    let path = Path::new(path.as_str());
+    println!("PATH: {:?}", path.to_path_buf());
 
     writer.write(&path)?;
     Ok(())

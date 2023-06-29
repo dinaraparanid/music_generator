@@ -1,6 +1,7 @@
+use std::fmt::Display;
 use std::time::Duration;
 
-pub trait BPM: Clone + Copy + Eq + Ord + Sized {
+pub trait BPM: Clone + Copy + Eq + Ord + Sized + Display {
     fn as_u64(&self) -> u64;
 
     #[inline]

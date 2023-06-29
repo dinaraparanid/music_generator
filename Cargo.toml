@@ -13,3 +13,4 @@ monoio = "0.1.4"
 rand = {version="0.8.5", features=["std", "std_rng"]}
 rust-music-theory = "0.2.0"
 astro-float = "0.7.1"
+itertools = "0.11.0"
