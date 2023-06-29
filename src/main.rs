@@ -1,4 +1,4 @@
-use ghakuf::writer::Writer;
+use chrono::Local;
 
 use music_generator::{
     midi::{
@@ -9,9 +9,13 @@ use music_generator::{
     notes::{note::Note, note_data::*},
 };
 
-use ghakuf::messages::{Message, MetaEvent};
+use ghakuf::{
+    messages::{Message, MetaEvent},
+    writer::Writer,
+};
+
+use ghakuf::messages::MidiEvent;
 use rust_music_theory::{note::Notes, scale::*};
-use std::time::{SystemTime, UNIX_EPOCH};
 use std::{collections::HashMap, path::Path};
 
 #[monoio::main]
@@ -60,9 +64,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     println!("SCALED NOTES: {:?}\n", scale_notes);
 
-    let (bpm, generated_lead) =
-        generate_lead_from_analyze(key, &scale_notes, &analyzed_melody_notes, notes_to_data)
-            .expect("Not enough data. Try again");
+    let (bpm, generated_lead) = {
+        let (bpm, generated_lead) =
+            generate_lead_from_analyze(&scale_notes, &analyzed_melody_notes, notes_to_data)
+                .expect("Not enough data. Try again");
+
+        (bpm, generated_lead)
+    };
 
     println!("BPM: {}", bpm);
     println!("NOTES: {:?}", generated_lead);
@@ -82,7 +90,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         data: [(tempo >> 16) as u8, (tempo >> 8) as u8, tempo as u8].to_vec(),
     };
 
+    let lead_instrument_msg = Message::MidiEvent {
+        delta_time: 0,
+        event: MidiEvent::ProgramChange { ch: 0, program: 8 },
+    };
+
     writer.push(&tempo_msg);
+    writer.push(&lead_instrument_msg);
     midi_messages.iter().for_each(|m| writer.push(m));
 
     let end_of_melody = Message::MetaEvent {
@@ -93,12 +107,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     writer.push(&end_of_melody);
 
-    let path = format!(
-        "./generated/{}-{:?}.mid",
-        key,
-        SystemTime::now().duration_since(UNIX_EPOCH).unwrap()
-    );
-
+    let path = format!("./generated/{}-{}.mid", key, Local::now());
     let path = Path::new(path.as_str());
     println!("PATH: {:?}", path.to_path_buf());
 

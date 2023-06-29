@@ -74,7 +74,22 @@ fn fixed_to_tempo(note: NoteData, lengths: &Vec<DeltaTime>, delays: &Vec<DeltaTi
 
 #[inline]
 pub fn generate_lead_from_analyze(
-    key: PitchClass,
+    scale_notes: &Vec<Note>,
+    analyzed_notes: &AnalyzedNotes,
+    mut notes_to_data: HashMap<Note, Vec<NoteData>>,
+) -> Option<(impl BPM, Vec<NoteData>)> {
+    let (bpm, lead) =
+        try_generate_lead_from_analyze(scale_notes, analyzed_notes, notes_to_data.clone())?;
+
+    if lead.len() > 3 {
+        Some((bpm, lead))
+    } else {
+        generate_lead_from_analyze(scale_notes, analyzed_notes, notes_to_data)
+    }
+}
+
+#[inline]
+fn try_generate_lead_from_analyze(
     scale_notes: &Vec<Note>,
     analyzed_notes: &AnalyzedNotes,
     mut notes_to_data: HashMap<Note, Vec<NoteData>>,
@@ -97,15 +112,16 @@ pub fn generate_lead_from_analyze(
     let first_note_datas = notes_to_data.get_mut(&first_note)?;
     first_note_datas.shuffle(&mut rng);
 
-    let lengths = generate_with_pi(rng.gen::<usize>() % 10 + 4)
+    let lengths = generate_with_pi(25)
         .into_iter()
         .filter(|&l| l >= 1 && l <= 8)
+        .unique()
         .map(|l| get_bar_ratio(bar_time, l))
         .collect::<Vec<_>>();
 
     println!("LENGTHS: {:?}", lengths);
 
-    let delays = generate_with_pi(rng.gen::<usize>() % 10 + 4)
+    let delays = generate_with_pi(25)
         .into_iter()
         .filter(|&d| d <= 4)
         .unique()
@@ -212,7 +228,7 @@ where
 {
     let mut rng = rand::thread_rng();
 
-    let mut delays = generate_with_pi(rng.gen::<usize>() % 10 + 4)
+    let mut delays = generate_with_pi(25)
         .into_iter()
         .filter(|&l| l >= 4 && l <= 8)
         .unique()
@@ -246,7 +262,10 @@ where
 fn randomize_lead(generated_lead: Vec<NoteData>, scale_notes: &Vec<Note>) -> Vec<NoteData> {
     let mut rng = rand::thread_rng();
     let direction = rng.gen::<u32>() % 2;
-    let semitones = (generate_with_pi(1).into_iter().next().unwrap() % 5) as u8;
+
+    let mut semitones = vec![5, 7];
+    semitones.shuffle(&mut rng);
+    let semitones = semitones[0];
 
     generated_lead
         .into_iter()
