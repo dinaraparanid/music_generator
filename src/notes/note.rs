@@ -1,5 +1,5 @@
 use rust_music_theory::note::{Note as MTNote, PitchClass};
-use std::{cmp::Ordering, iter::Zip, ops::RangeFrom};
+use std::{cmp::Ordering, iter::Zip, ops::RangeFrom, ops::Sub};
 use strum::IntoEnumIterator;
 use strum_macros::EnumIter;
 
@@ -215,5 +215,14 @@ impl Ord for Note {
     #[inline]
     fn cmp(&self, other: &Self) -> Ordering {
         self.midi().cmp(&other.midi())
+    }
+}
+
+impl Sub for Note {
+    type Output = i8;
+
+    #[inline]
+    fn sub(self, rhs: Self) -> Self::Output {
+        self.midi() as i8 - rhs.midi() as i8
     }
 }

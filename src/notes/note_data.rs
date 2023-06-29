@@ -64,7 +64,7 @@ impl NoteData {
             event: MidiEvent::NoteOn {
                 ch: 0,
                 note: self.note.midi(),
-                velocity: 100,
+                velocity: self.velocity,
             },
         }
     }
@@ -92,6 +92,21 @@ impl NoteData {
     #[inline]
     pub fn clone_with_new_note(&self, note: Note) -> Self {
         Self::new(note, self.velocity, self.start, self.length, self.delay)
+    }
+
+    #[inline]
+    pub fn clone_with_velocity(&self, velocity: Velocity) -> Self {
+        Self::new(self.note, velocity, self.start, self.length, self.delay)
+    }
+
+    #[inline]
+    pub fn clone_with_new_length(&self, length: DeltaTime) -> Self {
+        Self::new(self.note, self.velocity, self.start, length, self.delay)
+    }
+
+    #[inline]
+    pub fn clone_with_new_delay(&self, delay: DeltaTime) -> Self {
+        Self::new(self.note, self.velocity, self.start, self.length, delay)
     }
 
     #[inline]

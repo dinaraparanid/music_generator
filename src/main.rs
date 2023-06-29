@@ -2,10 +2,11 @@ use ghakuf::writer::Writer;
 
 use music_generator::{
     midi::{
+        bpm::BPM,
         generator::{analyzer::analyze_notes, composer::*},
         parser::midi_file_manager::*,
     },
-    notes::note::Note,
+    notes::{note::Note, note_data::*},
 };
 
 use rust_music_theory::{note::Notes, scale::*};
@@ -40,10 +41,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .collect::<Vec<_>>();
 
     let analyzed_melody_notes = analyze_notes(&melody_notes);
-    //let analyzed_melody_delays = analyze_delays(&melody_notes);
 
-    let key = generate_key(&analyzed_melody_notes).expect("`midi` folder is empty");
-    println!("Key: {:?}\n", key);
+    let key = generate_key();
+    println!("KEY: {:?}\n", key);
 
     let scale_notes = Scale::new(
         ScaleType::MelodicMinor,
@@ -57,20 +57,22 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     .map(Note::from)
     .collect::<Vec<_>>();
 
-    println!("Scale notes: {:?}\n", scale_notes);
+    println!("SCALED NOTES: {:?}\n", scale_notes);
 
-    let generated_lead = generate_lead_from_analyze(
-        key,
-        scale_notes,
-        &analyzed_melody_notes,
-        notes_to_data,
-        generate_note,
-    )
-    .expect("Not enough data. Try again");
+    let (bpm, generated_lead) =
+        generate_lead_from_analyze(key, &scale_notes, &analyzed_melody_notes, notes_to_data)
+            .expect("Not enough data. Try again");
 
-    println!("Notes: {:?}", generated_lead);
+    println!("NOTES: {:?}", generated_lead);
 
-    generated_lead.iter().for_each(|m| writer.push(m));
+    let midi_messages = compose_lead_from_generated(
+        bpm.get_bar_time().as_millis() as DeltaTime,
+        generated_lead,
+        &scale_notes,
+        compose_note,
+    );
+
+    midi_messages.iter().for_each(|m| writer.push(m));
 
     writer.write(&path)?;
     Ok(())

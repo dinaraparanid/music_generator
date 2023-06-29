@@ -1,6 +1,6 @@
 use std::time::Duration;
 
-pub trait BPM {
+pub trait BPM: Clone + Copy + Eq + Ord + Sized {
     fn as_u64(&self) -> u64;
 
     #[inline]
