@@ -25,7 +25,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let notes = extract_notes().await?;
 
-    let notes_to_data = notes
+    let mut notes_to_data = notes
         .iter()
         .map(|(_, notes)| notes.iter().map(|note| (note.get_note(), *note)))
         .flatten()
@@ -47,7 +47,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let analyzed_melody_notes = analyze_notes(&melody_notes);
 
     let key = generate_key();
-    println!("KEY: {:?}\n", key);
+    println!("KEY: {}\n", key);
 
     let scale_notes = Scale::new(
         ScaleType::MelodicMinor,
@@ -63,22 +63,19 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     println!("SCALED NOTES: {:?}\n", scale_notes);
 
-    let (bpm, generated_lead) = {
-        let (bpm, generated_lead) =
-            generate_lead_from_analyze(&scale_notes, &analyzed_melody_notes, notes_to_data)
-                .expect("Not enough data. Try again");
-
-        (bpm, generated_lead)
-    };
+    let (bpm, generated_lead) =
+        generate_lead_from_analyze(&scale_notes, &analyzed_melody_notes, &mut notes_to_data)
+            .expect("Not enough data. Try again");
 
     println!("BPM: {}", bpm);
     println!("NOTES: {:?}", generated_lead);
 
-    let midi_messages = compose_lead_from_generated(
+    let (lead_midi_messages, harmony_midi_messages) = compose_from_generated(
         bpm.get_bar_time().as_millis() as DeltaTime,
         generated_lead,
         &scale_notes,
         compose_note,
+        compose_chord,
     );
 
     let tempo = bpm.get_tempo();
@@ -89,22 +86,36 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         data: [(tempo >> 16) as u8, (tempo >> 8) as u8, tempo as u8].to_vec(),
     };
 
-    let lead_instrument_msg = Message::MidiEvent {
-        delta_time: 0,
-        event: MidiEvent::ProgramChange { ch: 0, program: 8 },
-    };
-
-    writer.push(&tempo_msg);
-    writer.push(&lead_instrument_msg);
-    midi_messages.iter().for_each(|m| writer.push(m));
-
-    let end_of_melody = Message::MetaEvent {
+    let end_of_track_msg = Message::MetaEvent {
         delta_time: 0,
         event: MetaEvent::EndOfTrack,
         data: Vec::new(),
     };
 
-    writer.push(&end_of_melody);
+    let track_change_msg = Message::TrackChange;
+
+    writer.push(&tempo_msg);
+    writer.push(&end_of_track_msg);
+    writer.push(&track_change_msg);
+
+    let lead_instrument_msg = Message::MidiEvent {
+        delta_time: 0,
+        event: MidiEvent::ProgramChange { ch: 0, program: 8 },
+    };
+
+    writer.push(&lead_instrument_msg);
+    lead_midi_messages.iter().for_each(|m| writer.push(m));
+    writer.push(&end_of_track_msg);
+
+    let harmony_instrument_msg = Message::MidiEvent {
+        delta_time: 0,
+        event: MidiEvent::ProgramChange { ch: 0, program: 15 },
+    };
+
+    writer.push(&track_change_msg);
+    writer.push(&harmony_instrument_msg);
+    harmony_midi_messages.iter().for_each(|m| writer.push(m));
+    writer.push(&end_of_track_msg);
 
     let path = format!("./generated/{}-{}.mid", key, Local::now());
     let path = Path::new(path.as_str());

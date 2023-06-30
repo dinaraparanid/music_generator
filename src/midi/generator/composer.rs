@@ -7,12 +7,16 @@ use astro_float::{ctx::Context, Consts, RoundingMode};
 use ghakuf::messages::Message;
 use itertools::Itertools;
 use rand::{prelude::SliceRandom, Rng};
-use rust_music_theory::note::{Note as MTNote, PitchClass};
+use rust_music_theory::chord::{Chord, Number, Quality};
+use rust_music_theory::note::{Note as MTNote, Notes, PitchClass};
 use std::collections::HashMap;
 
 const DIRECTION_UP: u32 = 0;
 const DIRECTION_STAY: u32 = 1;
 const DIRECTION_DOWN: u32 = 2;
+
+const NOTE_TAKE: u32 = 0;
+const NOTE_COMBINE: u32 = 1;
 
 #[inline]
 pub fn generate_key() -> PitchClass {
@@ -39,7 +43,7 @@ fn pi_numbers(from: usize, len: usize) -> Vec<u32> {
 
 #[inline]
 fn generate_with_pi(len: usize) -> Vec<u32> {
-    pi_numbers(rand::thread_rng().gen::<usize>() % 200, len)
+    pi_numbers(rand::thread_rng().gen::<usize>() % 50, len)
         .into_iter()
         .unique()
         .collect()
@@ -77,10 +81,9 @@ fn fixed_to_tempo(note: NoteData, lengths: &Vec<DeltaTime>, delays: &Vec<DeltaTi
 pub fn generate_lead_from_analyze(
     scale_notes: &Vec<Note>,
     analyzed_notes: &AnalyzedNotes,
-    notes_to_data: HashMap<Note, Vec<NoteData>>,
+    notes_to_data: &mut HashMap<Note, Vec<NoteData>>,
 ) -> Option<(impl BPM, Vec<NoteData>)> {
-    let (bpm, lead) =
-        try_generate_lead_from_analyze(scale_notes, analyzed_notes, notes_to_data.clone())?;
+    let (bpm, lead) = try_generate_lead_from_analyze(scale_notes, analyzed_notes, notes_to_data)?;
 
     if lead.len() > 3 {
         Some((bpm, lead))
@@ -93,7 +96,7 @@ pub fn generate_lead_from_analyze(
 fn try_generate_lead_from_analyze(
     scale_notes: &Vec<Note>,
     analyzed_notes: &AnalyzedNotes,
-    mut notes_to_data: HashMap<Note, Vec<NoteData>>,
+    notes_to_data: &mut HashMap<Note, Vec<NoteData>>,
 ) -> Option<(impl BPM, Vec<NoteData>)> {
     let mut rng = rand::thread_rng();
     let bpm = rng.gen_range(90..140);
@@ -170,6 +173,44 @@ fn try_generate_lead_from_analyze(
 }
 
 #[inline]
+pub fn generate_harmony_from_lead(generated_lead: &Vec<NoteData>) -> Vec<ChordData> {
+    generated_lead
+        .iter()
+        .skip(1)
+        .fold(vec![generated_lead[0]], |mut acc, &note| {
+            match generate_with_pi(1)[0] % 6 {
+                NOTE_TAKE => acc.push(note),
+
+                _ => {
+                    let last_note = *acc.last().unwrap();
+                    *acc.last_mut().unwrap() = last_note.clone_with_new_length(
+                        last_note.get_length() + note.get_delay() + note.get_length(),
+                    )
+                }
+            }
+
+            acc
+        })
+        .into_iter()
+        .map(|note| {
+            let mut notes = Chord::new(PitchClass::from(note), Quality::Minor, Number::Seventh)
+                .notes()
+                .into_iter()
+                .map(Note::from)
+                .map(|nt| note.clone_with_new_note(nt))
+                .collect::<Vec<_>>();
+
+            notes.iter_mut().skip(1).for_each(|n| {
+                let zero_delay_note = n.clone_with_new_delay(0);
+                *n = zero_delay_note;
+            });
+
+            notes
+        })
+        .collect()
+}
+
+#[inline]
 fn generate_tonic_lead_note(
     key: PitchClass,
     notes_to_data: &HashMap<Note, Vec<NoteData>>,
@@ -183,7 +224,7 @@ fn generate_tonic_lead_note(
 
 #[inline]
 pub fn compose_note(note: NoteData) -> Vec<Message> {
-    println!("{:?}", note);
+    println!("Note: {:?}", note);
 
     vec![
         note.into_on_midi_event(note.get_delay()),
@@ -193,17 +234,19 @@ pub fn compose_note(note: NoteData) -> Vec<Message> {
 
 #[inline]
 pub fn compose_chord(mut chord: ChordData) -> Vec<Message> {
+    println!("Chord: {:?}", chord);
+
     let mut result = chord
         .iter()
-        .map(|note_data| note_data.into_on_midi_event(0))
+        .map(|nd| nd.into_on_midi_event(nd.get_delay()))
         .collect::<Vec<_>>();
 
-    chord.sort_by_key(|nd| nd.get_length());
+    chord.sort_by_key(|nd| nd.get_delay() + nd.get_length());
 
     result.extend(
         chord
             .iter()
-            .map(|nd| nd.get_length())
+            .map(|nd| nd.get_delay() + nd.get_length())
             .scan((0, 0), |(time_offset, prev_note_end), cur_note_end| {
                 *time_offset = cur_note_end - *prev_note_end;
                 *prev_note_end = cur_note_end;
@@ -218,14 +261,16 @@ pub fn compose_chord(mut chord: ChordData) -> Vec<Message> {
 }
 
 #[inline]
-pub fn compose_lead_from_generated<C>(
+pub fn compose_from_generated<L, H>(
     bar_time: DeltaTime,
     generated_lead: Vec<NoteData>,
     scale_notes: &Vec<Note>,
-    composer: C,
-) -> Vec<Message>
+    lead_composer: L,
+    harmony_composer: H,
+) -> (Vec<Message>, Vec<Message>)
 where
-    C: Fn(NoteData) -> Vec<Message>,
+    L: Fn(NoteData) -> Vec<Message>,
+    H: Fn(ChordData) -> Vec<Message>,
 {
     let mut rng = rand::thread_rng();
 
@@ -240,25 +285,46 @@ where
     let delay = generated_lead[0].get_delay() + get_bar_ratio(bar_time, *delays.first().unwrap());
     println!("DELAY: {}", delay);
 
-    generate_with_pi(4)
+    let (leads, harmonies): (Vec<Vec<Vec<Message>>>, Vec<Vec<Vec<Message>>>) = generate_with_pi(4)
         .into_iter()
         .map(|x| x % 3)
         .map(|direction| randomize_lead(generated_lead.clone(), scale_notes, direction))
+        .map(|lead| {
+            let harmony = generate_harmony_from_lead(&lead);
+            (lead, harmony)
+        })
         .enumerate()
-        .map(|(ind, lead)| match ind {
-            0 => lead,
+        .map(|(ind, (mut lead, mut harmony))| match ind {
+            0 => (lead, harmony),
 
             _ => {
-                let mut new_lead = lead;
-                let first_note = new_lead[0];
-                new_lead[0] = first_note.clone_with_new_delay(delay);
-                new_lead
+                let first_note = lead[0];
+                lead[0] = first_note.clone_with_new_delay(delay);
+
+                let first_chord_note = harmony[0][0];
+                harmony[0][0] = first_chord_note.clone_with_new_delay(delay);
+
+                (lead, harmony)
             }
         })
-        .flatten()
-        .map(composer)
-        .flatten()
-        .collect()
+        .map(|(leads, harmonies)| {
+            (
+                leads
+                    .into_iter()
+                    .map(|l| lead_composer(l))
+                    .collect::<Vec<_>>(),
+                harmonies
+                    .into_iter()
+                    .map(|c| harmony_composer(c))
+                    .collect::<Vec<_>>(),
+            )
+        })
+        .unzip();
+
+    (
+        leads.into_iter().flatten().flatten().collect(),
+        harmonies.into_iter().flatten().flatten().collect(),
+    )
 }
 
 #[inline]
@@ -282,9 +348,13 @@ fn randomize_lead(
         })
         .map(|note| match scale_notes.contains(&note.get_note()) {
             true => note,
-
             false => scale_notes
                 .iter()
+                .filter(|&&scale_note| match direction {
+                    DIRECTION_UP => scale_note > note.get_note(),
+                    DIRECTION_DOWN => scale_note < note.get_note(),
+                    _ => true,
+                })
                 .map(|&scale_note| (scale_note, (scale_note - note.get_note()).abs()))
                 .min_by_key(|(_, dif)| *dif)
                 .map(|(scale_note, _)| note.clone_with_new_note(scale_note))
