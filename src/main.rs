@@ -10,11 +10,10 @@ use music_generator::{
 };
 
 use ghakuf::{
-    messages::{Message, MetaEvent},
+    messages::{Message, MetaEvent, MidiEvent},
     writer::Writer,
 };
 
-use ghakuf::messages::MidiEvent;
 use rust_music_theory::{note::Notes, scale::*};
 use std::{collections::HashMap, path::Path};
 

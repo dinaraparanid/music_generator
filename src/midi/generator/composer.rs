@@ -11,7 +11,8 @@ use rust_music_theory::note::{Note as MTNote, PitchClass};
 use std::collections::HashMap;
 
 const DIRECTION_UP: u32 = 0;
-const DIRECTION_DOWN: u32 = 1;
+const DIRECTION_STAY: u32 = 1;
+const DIRECTION_DOWN: u32 = 2;
 
 #[inline]
 pub fn generate_key() -> PitchClass {
@@ -57,7 +58,7 @@ fn fixed_to_tempo(note: NoteData, lengths: &Vec<DeltaTime>, delays: &Vec<DeltaTi
                 .iter()
                 .map(|&len| (len, (len as i32 - note.get_length() as i32).abs()))
                 .min_by_key(|(_, dif)| *dif)
-                .map(|(len, _)| len)
+                .map(|(len, _)| len + generate_with_pi(1)[0])
                 .unwrap_or(note.get_length()),
         )
         .clone_with_new_delay(
@@ -65,7 +66,7 @@ fn fixed_to_tempo(note: NoteData, lengths: &Vec<DeltaTime>, delays: &Vec<DeltaTi
                 .iter()
                 .map(|&delay| (delay, (delay as i32 - note.get_delay() as i32).abs()))
                 .min_by_key(|(_, dif)| *dif)
-                .map(|(delay, _)| delay)
+                .map(|(delay, _)| delay + generate_with_pi(1)[0])
                 .unwrap_or(note.get_delay()),
         );
 
@@ -76,7 +77,7 @@ fn fixed_to_tempo(note: NoteData, lengths: &Vec<DeltaTime>, delays: &Vec<DeltaTi
 pub fn generate_lead_from_analyze(
     scale_notes: &Vec<Note>,
     analyzed_notes: &AnalyzedNotes,
-    mut notes_to_data: HashMap<Note, Vec<NoteData>>,
+    notes_to_data: HashMap<Note, Vec<NoteData>>,
 ) -> Option<(impl BPM, Vec<NoteData>)> {
     let (bpm, lead) =
         try_generate_lead_from_analyze(scale_notes, analyzed_notes, notes_to_data.clone())?;
@@ -239,15 +240,17 @@ where
     let delay = generated_lead[0].get_delay() + get_bar_ratio(bar_time, *delays.first().unwrap());
     println!("DELAY: {}", delay);
 
-    (0..4)
-        .map(|_| randomize_lead(generated_lead.clone(), scale_notes))
+    generate_with_pi(4)
+        .into_iter()
+        .map(|x| x % 3)
+        .map(|direction| randomize_lead(generated_lead.clone(), scale_notes, direction))
         .enumerate()
         .map(|(ind, lead)| match ind {
             0 => lead,
 
             _ => {
                 let mut new_lead = lead;
-                let mut first_note = new_lead[0];
+                let first_note = new_lead[0];
                 new_lead[0] = first_note.clone_with_new_delay(delay);
                 new_lead
             }
@@ -259,23 +262,23 @@ where
 }
 
 #[inline]
-fn randomize_lead(generated_lead: Vec<NoteData>, scale_notes: &Vec<Note>) -> Vec<NoteData> {
+fn randomize_lead(
+    generated_lead: Vec<NoteData>,
+    scale_notes: &Vec<Note>,
+    direction: u32,
+) -> Vec<NoteData> {
     let mut rng = rand::thread_rng();
-    let direction = rng.gen::<u32>() % 2;
-
     let mut semitones = vec![5, 7];
     semitones.shuffle(&mut rng);
     let semitones = semitones[0];
 
     generated_lead
         .into_iter()
-        .map(|note| {
-            match direction {
-                DIRECTION_UP => note.up(semitones),
-                DIRECTION_DOWN => note.down(semitones),
-                _ => unreachable!(),
-            }
-            .unwrap()
+        .map(|note| match direction {
+            DIRECTION_UP => note.up(semitones).unwrap(),
+            DIRECTION_DOWN => note.down(semitones).unwrap(),
+            DIRECTION_STAY => note,
+            _ => unreachable!(),
         })
         .map(|note| match scale_notes.contains(&note.get_note()) {
             true => note,
