@@ -2,7 +2,7 @@ use crate::{
     midi::{
         bpm::BPM,
         generator::{
-            analyzer::AnalyzedNotes, arpeggio_types::ArpeggioTypes, fixed_to_tempo, get_bar_ratio,
+            analyzer::AnalyzedNotes, arpeggio_types::*, fixed_to_tempo, get_bar_ratio,
             random_from_vec, randomize_with_pi,
         },
     },
@@ -35,7 +35,7 @@ pub fn generate_key() -> PitchClass {
 fn generate_melody_length() -> u32 {
     // even: arp (up/down | same/same | u/u | d/d)
     // odd: 3 + even
-    rand::thread_rng().gen_range(3..=8)
+    rand::thread_rng().gen_range(3..=12)
 }
 
 #[inline]
@@ -45,6 +45,113 @@ fn probs_vec(up_down_stay_probs: (usize, usize, usize)) -> Vec<u32> {
     probs_vec.extend(vec![1; up_down_stay_probs.1]);
     probs_vec.extend(vec![2; up_down_stay_probs.2]);
     probs_vec
+}
+
+#[inline]
+fn get_scaled<F>(tonic_note: Note, scale_notes: &Vec<Note>, change: F) -> Option<Note>
+where
+    F: Fn(usize) -> usize,
+{
+    let pos = scale_notes.iter().position(|&nt| nt == tonic_note).unwrap();
+    scale_notes.get(change(pos)).map(|&nt| nt)
+}
+
+#[inline]
+fn take_note(
+    tonic_note: Note,
+    scale_notes: &Vec<Note>,
+    position: u32,
+    len: DeltaTime,
+    bar_time: DeltaTime,
+    cur_delay: DeltaTime,
+) -> NoteData {
+    let next_note = match rand::thread_rng().gen::<u32>() % 2 {
+        DIRECTION_UP => get_scaled(tonic_note, scale_notes, |pos| {
+            let mut notes_dif = vec![1, 2];
+            pos + random_from_vec(&mut notes_dif).unwrap()
+        })
+        .unwrap_or(tonic_note),
+
+        DIRECTION_DOWN => get_scaled(tonic_note, scale_notes, |pos| {
+            let mut notes_dif = vec![1, 2];
+            pos - random_from_vec(&mut notes_dif).unwrap()
+        })
+        .unwrap_or(tonic_note),
+
+        _ => unreachable!(),
+    };
+
+    NoteData::new(
+        next_note,
+        100,
+        position,
+        len,
+        get_bar_ratio(bar_time, cur_delay),
+    )
+}
+
+#[inline]
+pub fn generate_lead_melody(key: PitchClass, scale_notes: &Vec<Note>) -> (impl BPM, Vec<NoteData>) {
+    let mut rng = rand::thread_rng();
+    let bpm = rng.gen_range(90..140);
+    let bar_time = bpm.get_bar_time().as_millis() as DeltaTime;
+
+    let single_len = get_bar_ratio(bar_time, 4);
+    let tonic_note = generate_tonic_lead_note(key, 100, single_len, 0);
+    let mut is_big_delay_used = false;
+
+    let generated_lead = (4..32)
+        .step_by(4)
+        .fold(vec![tonic_note], |mut lead, position| {
+            let prev_note = *lead.last().unwrap();
+            let cur_delay = position - prev_note.get_start();
+
+            match cur_delay {
+                12 => {
+                    // Distance is too big, must take note
+                    is_big_delay_used = true;
+
+                    lead.push(take_note(
+                        tonic_note.get_note(),
+                        scale_notes,
+                        position,
+                        single_len,
+                        bar_time,
+                        cur_delay,
+                    ))
+                }
+
+                8 => {
+                    if is_big_delay_used {
+                        lead.push(take_note(
+                            tonic_note.get_note(),
+                            scale_notes,
+                            position,
+                            single_len,
+                            bar_time,
+                            cur_delay,
+                        ))
+                    }
+                }
+
+                _ => {
+                    if rng.gen_bool(0.75) {
+                        lead.push(take_note(
+                            tonic_note.get_note(),
+                            scale_notes,
+                            position,
+                            single_len,
+                            bar_time,
+                            cur_delay,
+                        ))
+                    }
+                }
+            };
+
+            lead
+        });
+
+    (bpm, generated_lead)
 }
 
 /// even: arpeggio
@@ -58,12 +165,15 @@ pub fn generate_melody(key: PitchClass, scale_notes: &Vec<Note>) -> (impl BPM, V
     let bar_time = bpm.get_bar_time().as_millis() as DeltaTime;
     let melody_len = generate_melody_length();
 
-    let mut lengths = (8..=16)
+    println!("BAR TIME: {}", bar_time);
+    println!("MELODY LEN: {}", melody_len);
+
+    let mut lengths = (2..=8)
         .step_by(2)
         .map(|l| get_bar_ratio(bar_time, l))
         .collect::<Vec<_>>();
 
-    let mut delays = (0..=8)
+    let mut delays = (0..=4)
         .step_by(2)
         .map(|d| get_bar_ratio(bar_time, d))
         .collect::<Vec<_>>();
@@ -76,8 +186,8 @@ pub fn generate_melody(key: PitchClass, scale_notes: &Vec<Note>) -> (impl BPM, V
     );
 
     let generated_melody = match melody_len % 2 {
-        0 => generate_arpeggio_melody(tonic_note, scale_notes, melody_len),
-        1 => generate_odd_melody(tonic_note, scale_notes, melody_len),
+        0 => generate_even_melody(tonic_note, scale_notes, melody_len, bar_time),
+        1 => generate_odd_melody(tonic_note, scale_notes, melody_len, bar_time),
         _ => unreachable!(),
     };
 
@@ -85,20 +195,62 @@ pub fn generate_melody(key: PitchClass, scale_notes: &Vec<Note>) -> (impl BPM, V
 }
 
 #[inline]
+fn generate_even_melody(
+    tonic_note: NoteData,
+    scale_notes: &Vec<Note>,
+    melody_len: u32,
+    bar_time: DeltaTime,
+) -> Vec<NoteData> {
+    if melody_len % 3 != 0 || rand::thread_rng().gen_bool(0.5) {
+        return generate_arpeggio_melody(tonic_note, scale_notes, melody_len, bar_time);
+    }
+
+    let melody_3 = generate_3_melody(tonic_note, scale_notes);
+
+    randomize_with_pi(melody_len as usize / 3)
+        .into_iter()
+        .map(|x| x % 3)
+        .map(|dir| randomize_lead(melody_3.clone(), scale_notes, dir))
+        .flatten()
+        .collect()
+}
+
+#[inline]
 fn generate_arpeggio_melody(
     tonic_note: NoteData,
     scale_notes: &Vec<Note>,
     arp_len: u32,
+    bar_time: DeltaTime,
 ) -> Vec<NoteData> {
-    (0..arp_len).step_by(2).fold(vec![], |mut arp_lead, _| {
-        let arp = (0..)
-            .map(|_| ArpeggioTypes::random_arp().next_part(tonic_note, scale_notes))
-            .skip_while(|try_arp| try_arp.is_none())
+    let mut delays = (0..=4)
+        .step_by(2)
+        .map(|d| get_bar_ratio(bar_time, d))
+        .collect::<Vec<_>>();
+
+    let mut last_arp = None;
+
+    (0..arp_len).step_by(2).fold(vec![], |mut arp_lead, i| {
+        let (arp, mut part) = (0..)
+            .map(|_| ArpeggioTypes::random_arp())
+            .filter(|arp| last_arp.map(|last| *arp != last).unwrap_or(true))
+            .map(|arp| (arp, arp.next_part(tonic_note, scale_notes)))
+            .skip_while(|(_, part)| part.is_none())
             .next()
-            .flatten()
+            .map(|(arp, part)| (arp, part.unwrap()))
             .unwrap();
 
-        arp_lead.extend(arp);
+        let _ = last_arp.insert(arp);
+
+        if i != 0 {
+            let first_note = part[0];
+            part[0] = first_note.clone_with_new_delay(random_from_vec(&mut delays).unwrap())
+        }
+
+        if rand::thread_rng().gen_bool(0.25) {
+            part.push(tonic_to_arp_note(tonic_note))
+        }
+
+        arp_lead.extend(part);
         arp_lead
     })
 }
@@ -108,6 +260,7 @@ fn generate_odd_melody(
     tonic_note: NoteData,
     scale_notes: &Vec<Note>,
     melody_len: u32,
+    bar_time: DeltaTime,
 ) -> Vec<NoteData> {
     let odd_part = 3;
     let event_part = melody_len - odd_part;
@@ -124,8 +277,12 @@ fn generate_odd_melody(
     }
 
     let (first_arp_len, second_arp_len) = random_from_vec(&mut arp_variations).unwrap();
-    let first_arp_melody = generate_arpeggio_melody(tonic_note, scale_notes, first_arp_len);
-    let second_arp_melody = generate_arpeggio_melody(tonic_note, scale_notes, second_arp_len);
+
+    let first_arp_melody =
+        generate_arpeggio_melody(tonic_note, scale_notes, first_arp_len, bar_time);
+
+    let second_arp_melody =
+        generate_arpeggio_melody(tonic_note, scale_notes, second_arp_len, bar_time);
 
     let mut odd_melody = vec![first_arp_melody, second_arp_melody, three_melody];
     odd_melody.shuffle(&mut rand::thread_rng());
@@ -288,7 +445,7 @@ pub fn generate_harmony_from_lead(generated_lead: &Vec<NoteData>) -> Vec<ChordDa
         .fold(
             vec![generated_lead[0].octave_down().unwrap()],
             |mut acc, &note| {
-                match randomize_with_pi(1)[0] % 8 {
+                match rand::thread_rng().gen::<u32>() % 10 {
                     NOTE_TAKE => acc.push(note),
 
                     _ => {
@@ -341,13 +498,21 @@ pub fn randomize_lead(
     generated_lead
         .into_iter()
         .map(|note| match direction {
-            DIRECTION_UP => note.up(7).unwrap(),
-            DIRECTION_DOWN => note.down(7).unwrap(),
+            DIRECTION_UP => get_closest_note(note.get_note(), scale_notes, true, up_filter)
+                .map(|nt| note.clone_with_new_note(nt))
+                .unwrap_or(note),
+
+            DIRECTION_DOWN => get_closest_note(note.get_note(), scale_notes, false, down_filter)
+                .map(|nt| note.clone_with_new_note(nt))
+                .unwrap_or(note),
+
             DIRECTION_STAY => note,
+
             _ => unreachable!(),
         })
         .map(|note| match scale_notes.contains(&note.get_note()) {
             true => note,
+
             false => scale_notes
                 .iter()
                 .map(|&scale_note| (scale_note, (scale_note - note.get_note()).abs()))

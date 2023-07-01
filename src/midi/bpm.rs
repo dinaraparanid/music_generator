@@ -1,12 +1,11 @@
-use std::fmt::Display;
-use std::time::Duration;
+use std::{fmt::Display, time::Duration};
 
 pub trait BPM: Clone + Copy + Eq + Ord + Sized + Display {
     fn as_u64(&self) -> u64;
 
     #[inline]
     fn get_bar_time(&self) -> Duration {
-        Duration::from_millis(240000 / self.as_u64())
+        Duration::from_millis(self.get_tempo() / 250)
     }
 
     #[inline]

@@ -34,7 +34,7 @@ fn randomize_with_pi(len: usize) -> Vec<u32> {
 
 #[inline]
 fn get_bar_ratio(bar_time: DeltaTime, ratio: u32) -> DeltaTime {
-    bar_time / 64 * ratio
+    bar_time * ratio / 64
 }
 
 #[inline]

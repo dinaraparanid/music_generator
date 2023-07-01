@@ -3,11 +3,12 @@ use chrono::Local;
 use music_generator::{
     midi::{
         bpm::BPM,
-        generator::generator::{generate_key, generate_melody},
-        generator::{analyzer::analyze_notes, composer::*},
-        parser::midi_file_manager::*,
+        generator::{
+            composer::*,
+            generator::{generate_key, generate_lead_melody},
+        },
     },
-    notes::{note::Note, note_data::*},
+    notes::note::Note,
 };
 
 use ghakuf::{
@@ -16,7 +17,7 @@ use ghakuf::{
 };
 
 use rust_music_theory::{note::Notes, scale::*};
-use std::{collections::HashMap, path::Path};
+use std::path::Path;
 
 #[monoio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -27,7 +28,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let key = generate_key();
     println!("KEY: {}\n", key);
 
-    let scale_notes = (4..=5)
+    let scale_notes = (3..=5)
         .map(|octave| {
             Scale::new(
                 ScaleType::MelodicMinor,
@@ -47,18 +48,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     println!("SCALED NOTES: {:?}\n", scale_notes);
 
-    let (bpm, generated_lead) = generate_melody(key, &scale_notes);
+    let (bpm, generated_lead) = generate_lead_melody(key, &scale_notes);
 
     println!("BPM: {}", bpm);
     println!("NOTES: {:?}", generated_lead);
 
-    let (lead_midi_messages, harmony_midi_messages) = compose_from_generated(
-        bpm.get_bar_time().as_millis() as DeltaTime,
-        generated_lead,
-        &scale_notes,
-        compose_note,
-        compose_chord,
-    );
+    let (lead_midi_messages, harmony_midi_messages) =
+        compose_from_generated(generated_lead, &scale_notes, compose_note, compose_chord);
 
     let tempo = bpm.get_tempo();
 
@@ -82,7 +78,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let lead_instrument_msg = Message::MidiEvent {
         delta_time: 0,
-        event: MidiEvent::ProgramChange { ch: 0, program: 62 },
+        event: MidiEvent::ProgramChange { ch: 0, program: 18 },
     };
 
     writer.push(&lead_instrument_msg);

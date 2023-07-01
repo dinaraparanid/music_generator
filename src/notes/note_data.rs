@@ -100,6 +100,11 @@ impl NoteData {
     }
 
     #[inline]
+    pub fn clone_with_new_start(&self, start: DeltaTime) -> Self {
+        Self::new(self.note, self.velocity, start, self.length, self.delay)
+    }
+
+    #[inline]
     pub fn clone_with_new_length(&self, length: DeltaTime) -> Self {
         Self::new(self.note, self.velocity, self.start, length, self.delay)
     }

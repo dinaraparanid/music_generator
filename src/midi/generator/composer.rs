@@ -7,8 +7,6 @@ use crate::{
 };
 
 use ghakuf::messages::Message;
-use itertools::Itertools;
-use rand::{prelude::SliceRandom, Rng};
 
 #[inline]
 pub fn compose_note(note: NoteData) -> Vec<Message> {
@@ -50,7 +48,6 @@ pub fn compose_chord(mut chord: ChordData) -> Vec<Message> {
 
 #[inline]
 pub fn compose_from_generated<L, H>(
-    bar_time: DeltaTime,
     generated_lead: Vec<NoteData>,
     scale_notes: &Vec<Note>,
     lead_composer: L,
@@ -60,53 +57,28 @@ where
     L: Fn(NoteData) -> Vec<Message>,
     H: Fn(ChordData) -> Vec<Message>,
 {
-    let mut rng = rand::thread_rng();
-
-    let mut delays = (0..20)
-        .map(|_| rng.gen_range(16..=32))
-        .unique()
-        .collect::<Vec<_>>();
-
-    delays.shuffle(&mut rng);
-
-    let delay = generated_lead[0].get_delay() + get_bar_ratio(bar_time, *delays.first().unwrap());
-    println!("DELAY BETWEEN PARTS: {}", delay);
-
-    let (leads, harmonies): (Vec<Vec<Vec<Message>>>, Vec<Vec<Vec<Message>>>) = randomize_with_pi(4)
-        .into_iter()
-        .map(|x| x % 3)
-        .map(|direction| randomize_lead(generated_lead.clone(), scale_notes, direction))
-        .map(|lead| {
-            let harmony = generate_harmony_from_lead(&lead);
-            (lead, harmony)
-        })
-        .enumerate()
-        .map(|(ind, (mut lead, mut harmony))| match ind {
-            0 => (lead, harmony),
-
-            _ => {
-                let first_note = lead[0];
-                lead[0] = first_note.clone_with_new_delay(delay);
-
-                let first_chord_note = harmony[0][0];
-                harmony[0][0] = first_chord_note.clone_with_new_delay(delay);
-
+    let (leads, harmonies): (Vec<Vec<Vec<Message>>>, Vec<Vec<Vec<Message>>>) =
+        randomize_with_pi(16)
+            .into_iter()
+            .map(|x| x % 3)
+            .map(|direction| randomize_lead(generated_lead.clone(), scale_notes, direction))
+            .map(|lead| {
+                let harmony = generate_harmony_from_lead(&lead);
                 (lead, harmony)
-            }
-        })
-        .map(|(leads, harmonies)| {
-            (
-                leads
-                    .into_iter()
-                    .map(|l| lead_composer(l))
-                    .collect::<Vec<_>>(),
-                harmonies
-                    .into_iter()
-                    .map(|c| harmony_composer(c))
-                    .collect::<Vec<_>>(),
-            )
-        })
-        .unzip();
+            })
+            .map(|(leads, harmonies)| {
+                (
+                    leads
+                        .into_iter()
+                        .map(|l| lead_composer(l))
+                        .collect::<Vec<_>>(),
+                    harmonies
+                        .into_iter()
+                        .map(|c| harmony_composer(c))
+                        .collect::<Vec<_>>(),
+                )
+            })
+            .unzip();
 
     (
         leads.into_iter().flatten().flatten().collect(),

@@ -32,47 +32,53 @@ impl ArpeggioTypes {
             ArpeggioTypes::SameSame => Some(vec![tonic_to_arp_note(tonic_note); 2]),
 
             ArpeggioTypes::SameUp => {
-                notes_from_tonic(tonic_note, scale_notes, true, true, up_filter)
+                notes_from_tonic(tonic_note, scale_notes, true, true, true, up_filter)
             }
 
             ArpeggioTypes::SameDown => {
-                notes_from_tonic(tonic_note, scale_notes, true, true, down_filter)
+                notes_from_tonic(tonic_note, scale_notes, true, true, false, down_filter)
             }
 
             ArpeggioTypes::UpSame => {
-                notes_from_tonic(tonic_note, scale_notes, true, false, up_filter)
+                notes_from_tonic(tonic_note, scale_notes, true, false, true, up_filter)
             }
 
             ArpeggioTypes::UpUp => {
-                notes_from_tonic(tonic_note, scale_notes, false, false, up_filter)
+                notes_from_tonic(tonic_note, scale_notes, false, false, true, up_filter)
             }
 
             ArpeggioTypes::DownSame => {
-                notes_from_tonic(tonic_note, scale_notes, true, false, down_filter)
+                notes_from_tonic(tonic_note, scale_notes, true, false, false, down_filter)
             }
 
             ArpeggioTypes::DownDown => {
-                notes_from_tonic(tonic_note, scale_notes, false, false, down_filter)
+                notes_from_tonic(tonic_note, scale_notes, false, false, false, down_filter)
             }
         }
     }
 }
 
 #[inline]
-fn get_closest_note<C: Fn(Note, Note) -> bool>(
+pub fn get_closest_note<C: Fn(Note, Note) -> bool>(
     note: Note,
     scale_notes: &Vec<Note>,
+    is_up: bool,
     cmp: C,
 ) -> Option<Note> {
-    scale_notes
+    let it = scale_notes
         .iter()
         .filter(|&&nt| cmp(note, nt))
-        .map(|&nt| nt)
-        .min_by_key(|nt| nt.midi())
+        .map(|&nt| nt);
+
+    if is_up {
+        it.min_by_key(|nt| nt.midi())
+    } else {
+        it.max_by_key(|nt| nt.midi())
+    }
 }
 
 #[inline]
-fn tonic_to_arp_note(tonic_note: NoteData) -> NoteData {
+pub fn tonic_to_arp_note(tonic_note: NoteData) -> NoteData {
     tonic_note
         .clone_with_new_length(tonic_note.get_length() / 2)
         .clone_with_new_delay(tonic_note.get_delay() / 2)
@@ -84,10 +90,11 @@ fn notes_from_tonic<C: Fn(Note, Note) -> bool>(
     scale_notes: &Vec<Note>,
     is_tonic_required: bool,
     is_tonic_first: bool,
+    is_up: bool,
     cmp: C,
 ) -> Option<Vec<NoteData>> {
     let tonic_note = tonic_to_arp_note(tonic_note);
-    let second_note = get_closest_note(tonic_note.get_note(), scale_notes, cmp)?;
+    let second_note = get_closest_note(tonic_note.get_note(), scale_notes, is_up, cmp)?;
     let second_note = tonic_note.clone_with_new_note(second_note);
 
     if !is_tonic_required {
@@ -101,11 +108,11 @@ fn notes_from_tonic<C: Fn(Note, Note) -> bool>(
 }
 
 #[inline]
-fn up_filter(tonic: Note, other: Note) -> bool {
+pub fn up_filter(tonic: Note, other: Note) -> bool {
     tonic.midi() < other.midi()
 }
 
 #[inline]
-fn down_filter(tonic: Note, other: Note) -> bool {
+pub fn down_filter(tonic: Note, other: Note) -> bool {
     tonic.midi() > other.midi()
 }
