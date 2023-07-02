@@ -1,7 +1,7 @@
 use crate::{
     midi::generator::{
         generator::{generate_harmony_from_lead, randomize_lead},
-        get_bar_ratio, randomize_with_pi,
+        randomize_with_pi,
     },
     notes::{note::Note, note_data::*, ChordData},
 };
@@ -57,31 +57,38 @@ where
     L: Fn(NoteData) -> Vec<Message>,
     H: Fn(ChordData) -> Vec<Message>,
 {
-    let (leads, harmonies): (Vec<Vec<Vec<Message>>>, Vec<Vec<Vec<Message>>>) =
-        randomize_with_pi(16)
-            .into_iter()
-            .map(|x| x % 3)
-            .map(|direction| randomize_lead(generated_lead.clone(), scale_notes, direction))
-            .map(|lead| {
-                let harmony = generate_harmony_from_lead(&lead);
-                (lead, harmony)
-            })
-            .map(|(leads, harmonies)| {
-                (
-                    leads
-                        .into_iter()
-                        .map(|l| lead_composer(l))
-                        .collect::<Vec<_>>(),
-                    harmonies
-                        .into_iter()
-                        .map(|c| harmony_composer(c))
-                        .collect::<Vec<_>>(),
-                )
-            })
-            .unzip();
+    let (leads, harmonies): (Vec<Vec<Vec<Message>>>, Vec<Vec<Vec<Message>>>) = randomize_with_pi(4)
+        .into_iter()
+        .map(|x| x % 3)
+        .map(|direction| randomize_lead(generated_lead.clone(), scale_notes, direction))
+        .map(|lead| {
+            let harmony = generate_harmony_from_lead(&lead);
+            (lead, harmony)
+        })
+        .map(|(leads, harmonies)| {
+            (
+                leads
+                    .into_iter()
+                    .map(|l| lead_composer(l))
+                    .collect::<Vec<_>>(),
+                harmonies
+                    .into_iter()
+                    .map(|c| harmony_composer(c))
+                    .collect::<Vec<_>>(),
+            )
+        })
+        .unzip();
+
+    let leads = leads.into_iter().flatten().flatten().collect::<Vec<_>>();
+
+    let harmonies = harmonies
+        .into_iter()
+        .flatten()
+        .flatten()
+        .collect::<Vec<_>>();
 
     (
-        leads.into_iter().flatten().flatten().collect(),
-        harmonies.into_iter().flatten().flatten().collect(),
+        vec![leads.clone(); 4].into_iter().flatten().collect(),
+        vec![harmonies.clone(); 4].into_iter().flatten().collect(),
     )
 }

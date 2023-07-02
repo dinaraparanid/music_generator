@@ -32,6 +32,7 @@ pub fn generate_key() -> PitchClass {
 }
 
 #[inline]
+#[deprecated]
 fn generate_melody_length() -> u32 {
     // even: arp (up/down | same/same | u/u | d/d)
     // odd: 3 + even
@@ -39,6 +40,7 @@ fn generate_melody_length() -> u32 {
 }
 
 #[inline]
+#[deprecated]
 fn probs_vec(up_down_stay_probs: (usize, usize, usize)) -> Vec<u32> {
     let mut probs_vec = vec![];
     probs_vec.extend(vec![0; up_down_stay_probs.0]);
@@ -57,15 +59,8 @@ where
 }
 
 #[inline]
-fn take_note(
-    tonic_note: Note,
-    scale_notes: &Vec<Note>,
-    position: u32,
-    len: DeltaTime,
-    bar_time: DeltaTime,
-    cur_delay: DeltaTime,
-) -> NoteData {
-    let next_note = match rand::thread_rng().gen::<u32>() % 2 {
+fn rand_close_note(tonic_note: Note, scale_notes: &Vec<Note>, up_down_direction: u32) -> Note {
+    match up_down_direction {
         DIRECTION_UP => get_scaled(tonic_note, scale_notes, |pos| {
             let mut notes_dif = vec![1, 2];
             pos + random_from_vec(&mut notes_dif).unwrap()
@@ -79,14 +74,24 @@ fn take_note(
         .unwrap_or(tonic_note),
 
         _ => unreachable!(),
-    };
+    }
+}
 
+#[inline]
+fn take_rand_close_note(
+    tonic_note: Note,
+    scale_notes: &Vec<Note>,
+    start_position: u32,
+    len: DeltaTime,
+    bar_time: DeltaTime,
+    delay_ratio: u32,
+) -> NoteData {
     NoteData::new(
-        next_note,
+        rand_close_note(tonic_note, scale_notes, rand::thread_rng().gen::<u32>() % 2),
         100,
-        position,
+        start_position,
         len,
-        get_bar_ratio(bar_time, cur_delay),
+        get_bar_ratio(bar_time, delay_ratio),
     )
 }
 
@@ -111,7 +116,7 @@ pub fn generate_lead_melody(key: PitchClass, scale_notes: &Vec<Note>) -> (impl B
                     // Distance is too big, must take note
                     is_big_delay_used = true;
 
-                    lead.push(take_note(
+                    lead.push(take_rand_close_note(
                         tonic_note.get_note(),
                         scale_notes,
                         position,
@@ -123,7 +128,7 @@ pub fn generate_lead_melody(key: PitchClass, scale_notes: &Vec<Note>) -> (impl B
 
                 8 => {
                     if is_big_delay_used {
-                        lead.push(take_note(
+                        lead.push(take_rand_close_note(
                             tonic_note.get_note(),
                             scale_notes,
                             position,
@@ -136,7 +141,7 @@ pub fn generate_lead_melody(key: PitchClass, scale_notes: &Vec<Note>) -> (impl B
 
                 _ => {
                     if rng.gen_bool(0.75) {
-                        lead.push(take_note(
+                        lead.push(take_rand_close_note(
                             tonic_note.get_note(),
                             scale_notes,
                             position,
@@ -158,7 +163,8 @@ pub fn generate_lead_melody(key: PitchClass, scale_notes: &Vec<Note>) -> (impl B
 /// odd: shuffle $ arp + 3 + arp
 
 #[inline]
-pub fn generate_melody(key: PitchClass, scale_notes: &Vec<Note>) -> (impl BPM, Vec<NoteData>) {
+#[deprecated]
+fn generate_melody(key: PitchClass, scale_notes: &Vec<Note>) -> (impl BPM, Vec<NoteData>) {
     let mut rng = rand::thread_rng();
     let bpm = rng.gen_range(90..140);
 
@@ -256,6 +262,7 @@ fn generate_arpeggio_melody(
 }
 
 #[inline]
+#[deprecated]
 fn generate_odd_melody(
     tonic_note: NoteData,
     scale_notes: &Vec<Note>,
@@ -290,6 +297,7 @@ fn generate_odd_melody(
 }
 
 #[inline]
+#[deprecated]
 fn generate_3_melody(tonic_note: NoteData, scale_notes: &Vec<Note>) -> Vec<NoteData> {
     let note_velocity = tonic_note.get_velocity();
     let note_length = tonic_note.get_length();
@@ -495,16 +503,21 @@ pub fn randomize_lead(
     scale_notes: &Vec<Note>,
     direction: u32,
 ) -> Vec<NoteData> {
+    let mut diffs = (0..=3).collect::<Vec<_>>();
+    let diff = random_from_vec(&mut diffs).unwrap();
+
     generated_lead
         .into_iter()
         .map(|note| match direction {
-            DIRECTION_UP => get_closest_note(note.get_note(), scale_notes, true, up_filter)
-                .map(|nt| note.clone_with_new_note(nt))
-                .unwrap_or(note),
+            DIRECTION_UP => note.clone_with_new_note(
+                get_scaled(note.get_note(), scale_notes, |pos| pos + diff)
+                    .unwrap_or(note.get_note()),
+            ),
 
-            DIRECTION_DOWN => get_closest_note(note.get_note(), scale_notes, false, down_filter)
-                .map(|nt| note.clone_with_new_note(nt))
-                .unwrap_or(note),
+            DIRECTION_DOWN => note.clone_with_new_note(
+                get_scaled(note.get_note(), scale_notes, |pos| pos - diff)
+                    .unwrap_or(note.get_note()),
+            ),
 
             DIRECTION_STAY => note,
 
