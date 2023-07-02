@@ -1,12 +1,20 @@
 use crate::notes::{note::Note, note_data::*};
 use std::{collections::HashMap, hash::Hash};
 
+#[deprecated]
 pub type RepeatTimes = u32;
+
+#[deprecated]
 type AnalyzedData<T> = HashMap<T, HashMap<T, RepeatTimes>>;
+
+#[deprecated]
 pub type AnalyzedNotes = AnalyzedData<Note>;
+
+#[deprecated]
 pub type AnalyzedDelays = AnalyzedData<DeltaTime>;
 
 #[inline]
+#[deprecated]
 fn analyze_data<T, G>(midi_data: &Vec<Vec<NoteData>>, data_getter: G) -> AnalyzedData<T>
 where
     T: Hash + Eq + Copy,
@@ -46,11 +54,13 @@ where
 }
 
 #[inline]
+#[deprecated]
 pub fn analyze_notes(midi_data: &Vec<Vec<NoteData>>) -> AnalyzedNotes {
     analyze_data(midi_data, NoteData::get_note)
 }
 
 #[inline]
+#[deprecated]
 pub fn analyze_delays(midi_data: &Vec<Vec<NoteData>>) -> AnalyzedDelays {
     analyze_data(midi_data, NoteData::get_delay)
 }

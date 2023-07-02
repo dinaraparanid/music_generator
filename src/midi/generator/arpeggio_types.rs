@@ -29,7 +29,7 @@ impl ArpeggioTypes {
         scale_notes: &Vec<Note>,
     ) -> Option<Vec<NoteData>> {
         match self {
-            ArpeggioTypes::SameSame => Some(vec![tonic_to_arp_note(tonic_note); 2]),
+            ArpeggioTypes::SameSame => Some(vec![tonic_note; 2]),
 
             ArpeggioTypes::SameUp => {
                 notes_from_tonic(tonic_note, scale_notes, true, true, true, up_filter)
@@ -78,13 +78,6 @@ pub fn get_closest_note<C: Fn(Note, Note) -> bool>(
 }
 
 #[inline]
-pub fn tonic_to_arp_note(tonic_note: NoteData) -> NoteData {
-    tonic_note
-        .clone_with_new_length(tonic_note.get_length() / 2)
-        .clone_with_new_delay(tonic_note.get_delay() / 2)
-}
-
-#[inline]
 fn notes_from_tonic<C: Fn(Note, Note) -> bool>(
     tonic_note: NoteData,
     scale_notes: &Vec<Note>,
@@ -93,7 +86,6 @@ fn notes_from_tonic<C: Fn(Note, Note) -> bool>(
     is_up: bool,
     cmp: C,
 ) -> Option<Vec<NoteData>> {
-    let tonic_note = tonic_to_arp_note(tonic_note);
     let second_note = get_closest_note(tonic_note.get_note(), scale_notes, is_up, cmp)?;
     let second_note = tonic_note.clone_with_new_note(second_note);
 

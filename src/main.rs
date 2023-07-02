@@ -22,13 +22,12 @@ use std::path::Path;
 #[monoio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut writer = Writer::new();
-
     writer.running_status(true);
 
     let key = generate_key();
     println!("KEY: {}\n", key);
 
-    let scale_notes = (3..=5)
+    let scale_notes = (2..=5)
         .map(|octave| {
             Scale::new(
                 ScaleType::MelodicMinor,
@@ -46,15 +45,20 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .flatten()
         .collect::<Vec<_>>();
 
-    println!("SCALED NOTES: {:?}\n", scale_notes);
+    println!("SCALE NOTES: {:?}\n", scale_notes);
 
     let (bpm, generated_lead) = generate_lead_melody(key, &scale_notes);
 
     println!("BPM: {}", bpm);
-    println!("NOTES: {:?}", generated_lead);
+    println!("LEAD: {:?}", generated_lead);
 
-    let (lead_midi_messages, harmony_midi_messages) =
-        compose_from_generated(generated_lead, &scale_notes, compose_note, compose_chord);
+    let (lead_midi_messages, harmony_midi_messages) = compose_from_generated(
+        key,
+        generated_lead,
+        &scale_notes,
+        compose_note,
+        compose_chord,
+    );
 
     let tempo = bpm.get_tempo();
 
@@ -78,16 +82,18 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let lead_instrument_msg = Message::MidiEvent {
         delta_time: 0,
-        event: MidiEvent::ProgramChange { ch: 0, program: 18 },
+        event: MidiEvent::ProgramChange { ch: 0, program: 32 },
     };
 
     writer.push(&lead_instrument_msg);
     lead_midi_messages.iter().for_each(|m| writer.push(m));
     writer.push(&end_of_track_msg);
 
-    // writer.push(&track_change_msg);
-    // harmony_midi_messages.iter().for_each(|m| writer.push(m));
-    // writer.push(&end_of_track_msg);
+    writer.push(&track_change_msg);
+    harmony_midi_messages.iter().for_each(|m| writer.push(m));
+    writer.push(&end_of_track_msg);
+
+    std::fs::create_dir("./generated").unwrap_or_default();
 
     let path = format!("./generated/{}-{}.mid", key, Local::now());
     let path = Path::new(path.as_str());

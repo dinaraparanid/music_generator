@@ -7,11 +7,10 @@ use crate::{
 };
 
 use ghakuf::messages::Message;
+use rust_music_theory::note::PitchClass;
 
 #[inline]
 pub fn compose_note(note: NoteData) -> Vec<Message> {
-    println!("Note: {:?}", note);
-
     vec![
         note.into_on_midi_event(note.get_delay()),
         note.into_off_midi_event(note.get_length()),
@@ -20,8 +19,6 @@ pub fn compose_note(note: NoteData) -> Vec<Message> {
 
 #[inline]
 pub fn compose_chord(mut chord: ChordData) -> Vec<Message> {
-    println!("Chord: {:?}", chord);
-
     let mut result = chord
         .iter()
         .map(|nd| nd.into_on_midi_event(nd.get_delay()))
@@ -48,6 +45,7 @@ pub fn compose_chord(mut chord: ChordData) -> Vec<Message> {
 
 #[inline]
 pub fn compose_from_generated<L, H>(
+    key: PitchClass,
     generated_lead: Vec<NoteData>,
     scale_notes: &Vec<Note>,
     lead_composer: L,
@@ -62,7 +60,7 @@ where
         .map(|x| x % 3)
         .map(|direction| randomize_lead(generated_lead.clone(), scale_notes, direction))
         .map(|lead| {
-            let harmony = generate_harmony_from_lead(&lead);
+            let harmony = generate_harmony_from_lead(key, &lead, scale_notes);
             (lead, harmony)
         })
         .map(|(leads, harmonies)| {
@@ -88,7 +86,7 @@ where
         .collect::<Vec<_>>();
 
     (
-        vec![leads.clone(); 4].into_iter().flatten().collect(),
-        vec![harmonies.clone(); 4].into_iter().flatten().collect(),
+        vec![leads.clone(); 2].into_iter().flatten().collect(),
+        vec![harmonies.clone(); 2].into_iter().flatten().collect(),
     )
 }
