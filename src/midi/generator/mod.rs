@@ -9,23 +9,49 @@ pub mod arpeggio_types;
 pub mod composer;
 pub mod generator;
 
+/// Gets random element from the vector.
+/// If vector is empty, returns
+///
+/// # Example
+/// ```
+/// use music_generator::midi::generator::random_from_vec;
+///
+/// let mut v = vec![1];
+/// assert_eq!(random_from_vec(&mut v), Some(1));
+///
+/// let mut empty = Vec::<u32>::new();
+/// assert_eq!(random_from_vec(&mut empty), None)
+/// ```
+
 #[inline]
-fn random_from_vec<T: Clone>(data: &mut Vec<T>) -> Option<T> {
+pub fn random_from_vec<T: Clone>(data: &mut Vec<T>) -> Option<T> {
     data.shuffle(&mut rand::thread_rng());
     data.first().map(|t| t.clone())
 }
 
-#[inline]
-fn pi_numbers(from: usize, len: usize) -> Vec<u32> {
-    let pi = Context::new(1024 * 1024, RoundingMode::ToEven, Consts::new().unwrap()).const_pi();
-    let pi = pi.mantissa_digits().unwrap();
+/// Gets digits from PI starting from
+/// the given position in mantissa
+///
+/// # Example
+/// ```
+/// use music_generator::midi::generator::pi_numbers;
+/// assert_eq!(pi_numbers(0, 2), vec![1, 4])
+/// ```
 
-    pi.into_iter()
-        .skip(from)
+#[inline]
+pub fn pi_numbers(from: usize, len: usize) -> Vec<u32> {
+    let pi = Context::new(1024, RoundingMode::ToEven, Consts::new().unwrap()).const_pi();
+    let pi = format!("{}", pi);
+
+    pi.chars()
+        .skip(2 + from)
         .take(len)
-        .map(|&x| (x % 10) as u32)
+        .map(|x| x.to_digit(10).unwrap())
         .collect()
 }
+
+/// Gets random sequence of digits
+/// from PI with a given length
 
 #[inline]
 fn randomize_with_pi(len: usize) -> Vec<u32> {
@@ -34,10 +60,22 @@ fn randomize_with_pi(len: usize) -> Vec<u32> {
         .collect()
 }
 
+/// Gets time for a given ratio in terms of bar's time.
+/// Note that bar is divided into 64 parts
+
 #[inline]
 fn get_bar_ratio(bar_time: DeltaTime, ratio: u32) -> DeltaTime {
     bar_time * ratio / 64
 }
+
+/// Fixing parsed MIDI notes to match
+/// the  appropriate lengths and delays,
+/// generated from the BPM
+///
+/// # Deprecated
+/// Idea of note parsing and analysis was
+/// abandoned in favour of pure generation.
+/// Yet, it may be useful in the future
 
 #[inline]
 #[deprecated]

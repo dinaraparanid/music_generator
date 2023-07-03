@@ -1,13 +1,20 @@
 use crate::{
     midi::generator::{
         generator::{generate_harmony_from_lead, randomize_lead},
-        randomize_with_pi,
+        get_bar_ratio, randomize_with_pi,
     },
     notes::{note::Note, note_data::*, ChordData},
 };
 
 use ghakuf::messages::Message;
+use itertools::Itertools;
+use rand::prelude::SliceRandom;
 use rust_music_theory::note::PitchClass;
+
+/// Constructs vector of ON and OFF MIDI events.
+/// ON event is happened after the note's delay,
+/// OFF event is happened after the note's end
+/// (when length is reached)
 
 #[inline]
 pub fn compose_note(note: NoteData) -> Vec<Message> {
@@ -17,8 +24,14 @@ pub fn compose_note(note: NoteData) -> Vec<Message> {
     ]
 }
 
+/// Constructs vector of ON/OFF MIDI events for all notes in a chord.
+/// It is assumed that all notes in a chord have the same delay.
+/// However, notes length may differ, so OFF events are sorted by the length
+
 #[inline]
 pub fn compose_chord(mut chord: ChordData) -> Vec<Message> {
+    // Constructing on events
+
     let mut result = chord
         .iter()
         .map(|nd| nd.into_on_midi_event(nd.get_delay()))
@@ -42,6 +55,10 @@ pub fn compose_chord(mut chord: ChordData) -> Vec<Message> {
 
     result
 }
+
+/// Generates harmony from the given lead.
+/// Then constructs vectors of MIDI messages
+/// from both lead and generated harmony
 
 #[inline]
 pub fn compose_from_generated<L, H>(

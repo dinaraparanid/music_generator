@@ -15,6 +15,8 @@ pub enum ArpeggioTypes {
 }
 
 impl ArpeggioTypes {
+    /// Generates random arpeggio
+
     #[inline]
     pub fn random_arp() -> Self {
         let mut rng = rand::thread_rng();
@@ -22,52 +24,45 @@ impl ArpeggioTypes {
         Self::iter().skip(index).next().unwrap()
     }
 
+    /// Constructs notes based on tonic
+    /// and current arpeggio state.
+    /// Closest to tonic notes that
+    /// match scale are taken
+
     #[inline]
-    pub fn next_part(
+    pub fn notes_from_tonic(
         &self,
         tonic_note: NoteData,
         scale_notes: &Vec<Note>,
     ) -> Option<Vec<NoteData>> {
         match self {
             ArpeggioTypes::SameSame => Some(vec![tonic_note; 2]),
+            ArpeggioTypes::SameUp => notes_from_tonic(tonic_note, scale_notes, true, true, true),
+            ArpeggioTypes::SameDown => notes_from_tonic(tonic_note, scale_notes, true, true, false),
 
-            ArpeggioTypes::SameUp => {
-                notes_from_tonic(tonic_note, scale_notes, true, true, true, up_filter)
-            }
-
-            ArpeggioTypes::SameDown => {
-                notes_from_tonic(tonic_note, scale_notes, true, true, false, down_filter)
-            }
-
-            ArpeggioTypes::UpSame => {
-                notes_from_tonic(tonic_note, scale_notes, true, false, true, up_filter)
-            }
-
-            ArpeggioTypes::UpUp => {
-                notes_from_tonic(tonic_note, scale_notes, false, false, true, up_filter)
-            }
+            ArpeggioTypes::UpSame => notes_from_tonic(tonic_note, scale_notes, true, false, true),
+            ArpeggioTypes::UpUp => notes_from_tonic(tonic_note, scale_notes, false, false, true),
 
             ArpeggioTypes::DownSame => {
-                notes_from_tonic(tonic_note, scale_notes, true, false, false, down_filter)
+                notes_from_tonic(tonic_note, scale_notes, true, false, false)
             }
 
             ArpeggioTypes::DownDown => {
-                notes_from_tonic(tonic_note, scale_notes, false, false, false, down_filter)
+                notes_from_tonic(tonic_note, scale_notes, false, false, false)
             }
         }
     }
 }
 
+/// Get closest note to the given one
+
 #[inline]
-pub fn get_closest_note<C: Fn(Note, Note) -> bool>(
-    note: Note,
-    scale_notes: &Vec<Note>,
-    is_up: bool,
-    cmp: C,
-) -> Option<Note> {
+fn get_closest_note(note: Note, scale_notes: &Vec<Note>, is_up: bool) -> Option<Note> {
+    let filter = if is_up { up_filter } else { down_filter };
+
     let it = scale_notes
         .iter()
-        .filter(|&&nt| cmp(note, nt))
+        .filter(|&&nt| filter(note, nt))
         .map(|&nt| nt);
 
     if is_up {
@@ -77,16 +72,19 @@ pub fn get_closest_note<C: Fn(Note, Note) -> bool>(
     }
 }
 
+/// Constructs vector of 2 arpeggio notes by the given tonic note.
+/// In case if tonic is note required (UpUp or DownDown),
+/// position of tonic does note matter.
+
 #[inline]
-fn notes_from_tonic<C: Fn(Note, Note) -> bool>(
+fn notes_from_tonic(
     tonic_note: NoteData,
     scale_notes: &Vec<Note>,
     is_tonic_required: bool,
     is_tonic_first: bool,
     is_up: bool,
-    cmp: C,
 ) -> Option<Vec<NoteData>> {
-    let second_note = get_closest_note(tonic_note.get_note(), scale_notes, is_up, cmp)?;
+    let second_note = get_closest_note(tonic_note.get_note(), scale_notes, is_up)?;
     let second_note = tonic_note.clone_with_new_note(second_note);
 
     if !is_tonic_required {
@@ -99,12 +97,16 @@ fn notes_from_tonic<C: Fn(Note, Note) -> bool>(
     })
 }
 
+/// Filters all notes with a higher pitch
+
 #[inline]
-pub fn up_filter(tonic: Note, other: Note) -> bool {
+fn up_filter(tonic: Note, other: Note) -> bool {
     tonic.midi() < other.midi()
 }
 
+/// Filters all notes with a lower pitch
+
 #[inline]
-pub fn down_filter(tonic: Note, other: Note) -> bool {
+fn down_filter(tonic: Note, other: Note) -> bool {
     tonic.midi() > other.midi()
 }

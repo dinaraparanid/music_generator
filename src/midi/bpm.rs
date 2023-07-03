@@ -1,5 +1,9 @@
 use std::{fmt::Display, time::Duration};
 
+/// BPM trait to count tempo and bar time.
+/// Implementor is required to be a number
+/// in order to be converted to u64 to calculate all measures
+
 pub trait BPM: Clone + Copy + Eq + Ord + Sized + Display {
     fn as_u64(&self) -> u64;
 
@@ -14,6 +18,13 @@ pub trait BPM: Clone + Copy + Eq + Ord + Sized + Display {
     }
 }
 
+impl BPM for u64 {
+    #[inline]
+    fn as_u64(&self) -> u64 {
+        *self
+    }
+}
+
 macro_rules! impl_bpm {
     ($num_type:ty) => {
         impl BPM for $num_type {
@@ -23,13 +34,6 @@ macro_rules! impl_bpm {
             }
         }
     };
-}
-
-impl BPM for u64 {
-    #[inline]
-    fn as_u64(&self) -> u64 {
-        *self
-    }
 }
 
 impl_bpm!(i64);

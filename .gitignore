@@ -1,2 +1,4 @@
 /target
-*.mid
+/midi
+/good_examples
+/generated

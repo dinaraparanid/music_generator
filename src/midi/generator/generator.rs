@@ -24,6 +24,9 @@ const DIRECTION_STAY: u32 = 2;
 
 const NOTE_TAKE: u32 = 0;
 
+/// Generates random key from
+/// the set of [D#, F#, G#, E]
+
 #[inline]
 pub fn generate_key() -> PitchClass {
     let mut keys = vec![
@@ -36,6 +39,14 @@ pub fn generate_key() -> PitchClass {
     random_from_vec(&mut keys).unwrap()
 }
 
+/// Generates number of notes in a melody.
+/// Number is in the set of 3..=12
+///
+/// # Deprecated
+/// Currently, melody is generated as an arpeggio,
+/// where number of notes is decided in the generation process.
+/// Was used in previous solutions, may be used in the future
+
 #[inline]
 #[deprecated]
 fn generate_melody_length() -> u32 {
@@ -44,9 +55,24 @@ fn generate_melody_length() -> u32 {
     rand::thread_rng().gen_range(3..=12)
 }
 
+/// Constructs probabilities vector from the triple,
+/// where all elements are probabilities of one
+/// of the events from the triple
+///
+/// # Deprecated
+/// Probabilities were used in Markov chain based solutions.
+/// They still may be used in the future
+///
+/// # Example
+/// ```
+/// use music_generator::midi::generator::generator::probs_vec;
+/// let triple = (2, 3, 4);
+/// assert_eq!(probs_vec(triple), vec![0, 0, 1, 1, 1, 2, 2, 2, 2])
+/// ```
+
 #[inline]
 #[deprecated]
-fn probs_vec(up_down_stay_probs: (usize, usize, usize)) -> Vec<u32> {
+pub fn probs_vec(up_down_stay_probs: (usize, usize, usize)) -> Vec<u32> {
     let mut probs_vec = vec![];
     probs_vec.extend(vec![0; up_down_stay_probs.0]);
     probs_vec.extend(vec![1; up_down_stay_probs.1]);
@@ -54,14 +80,23 @@ fn probs_vec(up_down_stay_probs: (usize, usize, usize)) -> Vec<u32> {
     probs_vec
 }
 
+/// Tries to get a note in the scale list by the given note.
+/// Change function accepts current note's index and tries to
+/// get note in scale list with change(index) position
+
 #[inline]
 fn get_scaled<F>(tonic_note: Note, scale_notes: &Vec<Note>, change: F) -> Option<Note>
 where
     F: Fn(usize) -> usize,
 {
-    let pos = scale_notes.iter().position(|&nt| nt == tonic_note).unwrap();
+    let pos = scale_notes.iter().position(|&nt| nt == tonic_note)?;
     scale_notes.get(change(pos)).map(|&nt| nt)
 }
+
+/// Gets random note in scale which is close to the current one.
+/// For the Up direction, notes allowed to be in position +1 or +2 from the current one,
+/// for the Down direction, only note with position -1 can be used.
+/// Direction is chosen as [DIRECTION_UP] or [DIRECTION_DOWN]
 
 #[inline]
 fn rand_close_note(tonic_note: Note, scale_notes: &Vec<Note>, up_down_direction: u32) -> Note {
@@ -72,15 +107,17 @@ fn rand_close_note(tonic_note: Note, scale_notes: &Vec<Note>, up_down_direction:
         })
         .unwrap_or(tonic_note),
 
-        DIRECTION_DOWN => get_scaled(tonic_note, scale_notes, |pos| {
-            let mut notes_dif = vec![1];
-            pos - random_from_vec(&mut notes_dif).unwrap()
-        })
-        .unwrap_or(tonic_note),
+        DIRECTION_DOWN => get_scaled(tonic_note, scale_notes, |pos| pos - 1).unwrap_or(tonic_note),
 
         _ => unreachable!(),
     }
 }
+
+/// Constructs random MIDI note from the given tonic note.
+/// Gets random note in scale which is close to the current one.
+/// For the Up direction, notes allowed to be in position +1 or +2 from the current one,
+/// for the Down direction, only note with position -1 can be used.
+/// Note is always created with volume equal to 80. Direction is chosen randomly
 
 #[inline]
 fn take_rand_close_note(
@@ -100,10 +137,18 @@ fn take_rand_close_note(
     )
 }
 
+/// Generates both BPM (95..=115) and the lead melody.
+/// For the lead melody, next algorithm is used:
+/// Separates bar onto 16 parts, then for each
+/// position either puts note with length 1/16 of bar,
+/// or skips it. Only single pause with 2/16 length is allowed
+/// Pause with 3/16 and greater are not allowed.
+/// Chosen notes are close to the key and lie on scale
+
 #[inline]
 pub fn generate_lead_melody(key: PitchClass, scale_notes: &Vec<Note>) -> (impl BPM, Vec<NoteData>) {
     let mut rng = rand::thread_rng();
-    let bpm = rng.gen_range(90..120);
+    let bpm = rng.gen_range(95..=115);
     let bar_time = bpm.get_bar_time().as_millis() as DeltaTime;
 
     let single_len = get_bar_ratio(bar_time, 4);
@@ -132,6 +177,8 @@ pub fn generate_lead_melody(key: PitchClass, scale_notes: &Vec<Note>) -> (impl B
                 }
 
                 8 => {
+                    // If big delay was used, must take a note
+
                     if is_big_delay_used {
                         lead.push(take_rand_close_note(
                             tonic_note.get_note(),
@@ -165,14 +212,20 @@ pub fn generate_lead_melody(key: PitchClass, scale_notes: &Vec<Note>) -> (impl B
     (bpm, generated_lead)
 }
 
-/// even: arpeggio
-/// odd: shuffle $ arp + 3 + arp
+/// Generates BPM, melody len and the melody itself with even/odd algorithm.
+/// If melody length is even, generates either fully arpeggio melody,
+/// or if melody is dividable by 3, creates 3x melody. For odd melodies
+/// creates arpeggio + 3 + arpeggio melody, than shuffles it.
+///
+/// # Deprecated
+/// Algorithm have produced too controversial and unstable results.
+/// Currently, abandoned, but may be integrated in the future
 
 #[inline]
 #[deprecated]
 fn generate_even_odd_melody(key: PitchClass, scale_notes: &Vec<Note>) -> (impl BPM, Vec<NoteData>) {
     let mut rng = rand::thread_rng();
-    let bpm = rng.gen_range(90..140);
+    let bpm = rng.gen_range(95..=115);
 
     let bar_time = bpm.get_bar_time().as_millis() as DeltaTime;
     let melody_len = generate_melody_length();
@@ -206,6 +259,14 @@ fn generate_even_odd_melody(key: PitchClass, scale_notes: &Vec<Note>) -> (impl B
     (bpm, generated_melody)
 }
 
+/// Generates event melody from the given tonic note and the melody length.
+/// Generates either fully arpeggio melody,
+/// or if melody is dividable by 3, creates 3x melody.
+///
+/// # Deprecated
+/// Algorithm have produced too controversial and unstable results.
+/// Currently, abandoned, but may be integrated in the future
+
 #[inline]
 #[deprecated]
 fn generate_even_melody(
@@ -228,6 +289,13 @@ fn generate_even_melody(
         .collect()
 }
 
+/// Generates repeating arpeggio melody by the given tonic note.
+/// Generated notes are placed closely to the tonic and match the scale
+///
+/// # Deprecated
+/// Algorithm have produced too controversial and unstable results.
+/// Currently, abandoned, but may be integrated in the future
+
 #[inline]
 #[deprecated]
 fn generate_arpeggio_melody(
@@ -247,7 +315,7 @@ fn generate_arpeggio_melody(
         let (arp, mut part) = (0..)
             .map(|_| ArpeggioTypes::random_arp())
             .filter(|arp| last_arp.map(|last| *arp != last).unwrap_or(true))
-            .map(|arp| (arp, arp.next_part(tonic_note, scale_notes)))
+            .map(|arp| (arp, arp.notes_from_tonic(tonic_note, scale_notes)))
             .skip_while(|(_, part)| part.is_none())
             .next()
             .map(|(arp, part)| (arp, part.unwrap()))
@@ -264,6 +332,15 @@ fn generate_arpeggio_melody(
         arp_lead
     })
 }
+
+/// Generates melody with and odd length.
+/// Creates arpeggio + 3 + arpeggio melody, than shuffles it.
+/// Melody with length 3, as well as arpeggios,
+/// are generated randomly by the given tonic note
+///
+/// # Deprecated
+/// Algorithm have produced too controversial and unstable results.
+/// Currently, abandoned, but may be integrated in the future
 
 #[inline]
 #[deprecated]
@@ -300,6 +377,16 @@ fn generate_odd_melody(
     odd_melody.into_iter().flatten().collect()
 }
 
+/// Generates melody with length 3. Next algorithm is used for generation:
+/// First note is chosen randomly, then Markov chains are applied to generate
+/// pitch, length and the delay. If note with pitch upper than tonic is generated,
+/// then probability for the note with same/lower pitch to be used is increased
+/// (and that is true for all 3 parameters)
+///
+/// # Deprecated
+/// Algorithm have produced too controversial and unstable results.
+/// Currently, abandoned, but may be integrated in the future
+
 #[inline]
 #[deprecated]
 fn generate_3_melody(tonic_note: NoteData, scale_notes: &Vec<Note>) -> Vec<NoteData> {
@@ -308,29 +395,37 @@ fn generate_3_melody(tonic_note: NoteData, scale_notes: &Vec<Note>) -> Vec<NoteD
     let note_delay = tonic_note.get_delay();
     let mut note_up_down_stay_probs = (1, 1, 1);
 
+    // Constructs lead, starting from the tonic note
+
     (1..3)
         .scan(tonic_note, |prev_note, _| {
             let mut note_probs_vec = probs_vec(note_up_down_stay_probs);
 
             let mut next_notes = match random_from_vec(&mut note_probs_vec).unwrap() {
+                // If up, picks note with upper pitch that matches scale
                 DIRECTION_UP => scale_notes
                     .iter()
                     .filter(|&note| note.midi() > prev_note.get_note().midi())
                     .map(|&note| (note, DIRECTION_UP))
                     .collect::<Vec<_>>(),
 
+                // If down, picks note with lower pitch that matches scale
                 DIRECTION_DOWN => scale_notes
                     .iter()
                     .filter(|&note| note.midi() < prev_note.get_note().midi())
                     .map(|&note| (note, DIRECTION_DOWN))
                     .collect::<Vec<_>>(),
 
+                // If stay, produces the same note
                 DIRECTION_STAY => vec![(prev_note.get_note(), DIRECTION_STAY)],
 
                 _ => unreachable!(),
             };
 
             let (next_note, next_note_direction) = random_from_vec(&mut next_notes)?;
+
+            // Updates probabilities according to the event:
+            // if `event 1` was chosen, increments all other events
 
             match next_note_direction {
                 DIRECTION_UP => {
@@ -357,6 +452,15 @@ fn generate_3_melody(tonic_note: NoteData, scale_notes: &Vec<Note>) -> Vec<NoteD
         .collect()
 }
 
+/// Generates lead from the parsed MIDI notes, using Markov chains.
+/// Markov chains are used to get the next note given the current one.
+///
+/// # Deprecated
+/// There were a lot of issues with parsing lead notes,
+/// because it is not easy to contrast lead and harmony in the single MIDI file.
+/// As a result, melodies were to random and the result is too unstable.
+/// Currently, abandoned, but may be integrated in the future
+
 #[inline]
 #[deprecated]
 fn generate_lead_from_analyze(
@@ -373,6 +477,17 @@ fn generate_lead_from_analyze(
     }
 }
 
+/// Tries to generate appropriate melody with parsed notes using Markov chains.
+/// Produces both BPM and the generated lead melody from the analyzed
+/// dataset of notes and their probabilities. First note is taken randomly,
+/// then next notes are taken from the analyzed dataset.
+///
+/// # Deprecated
+/// There were a lot of issues with parsing lead notes,
+/// because it is not easy to contrast lead and harmony in the single MIDI file.
+/// As a result, melodies were to random and the result is too unstable.
+/// Currently, abandoned, but may be integrated in the future
+
 #[inline]
 #[deprecated]
 fn try_generate_lead_from_analyze(
@@ -381,11 +496,12 @@ fn try_generate_lead_from_analyze(
     notes_to_data: &mut HashMap<Note, Vec<NoteData>>,
 ) -> Option<(impl BPM, Vec<NoteData>)> {
     let mut rng = rand::thread_rng();
-    let bpm = rng.gen_range(90..=120);
+    let bpm = rng.gen_range(95..=115);
 
     let bar_time = bpm.get_bar_time().as_millis() as DeltaTime;
     let melody_len = generate_melody_length();
 
+    // First note is taken randomly from the dataset
     let mut first_notes = analyzed_notes
         .keys()
         .filter(|&note| scale_notes.contains(note))
@@ -398,12 +514,14 @@ fn try_generate_lead_from_analyze(
     let first_note_datas = notes_to_data.get_mut(&first_note)?;
     first_note_datas.shuffle(&mut rng);
 
+    // Allowed lengths for notes
     let lengths = (4..=32)
         .map(|l| get_bar_ratio(bar_time, l))
         .collect::<Vec<_>>();
 
     println!("LENGTHS: {:?}", lengths);
 
+    // Allowed delays for notes
     let delays = (0..=16)
         .map(|d| get_bar_ratio(bar_time, d))
         .collect::<Vec<_>>();
@@ -419,6 +537,7 @@ fn try_generate_lead_from_analyze(
     generated_lead.extend(
         (1..melody_len)
             .scan(first_note, |prev_note, _| {
+                // Getting second note from the previous one
                 let mut second_notes = analyzed_notes
                     .get(prev_note)?
                     .iter()
@@ -435,6 +554,7 @@ fn try_generate_lead_from_analyze(
                 Some(*prev_note)
             })
             .map(|second_note| {
+                // Taking random MIDI note from the produced note
                 let mut rng = rand::thread_rng();
                 let mut second_note_datas = notes_to_data.get(&second_note)?.clone();
                 second_note_datas.shuffle(&mut rng);
@@ -442,12 +562,32 @@ fn try_generate_lead_from_analyze(
                 let next_note = second_note_datas.into_iter().next()?;
                 Some(next_note)
             })
-            .take_while(|note_opt| note_opt.is_some())
-            .filter_map(|note_opt| note_opt.map(|note| fixed_to_tempo(note, &lengths, &delays))),
+            .take_while(|note_opt| note_opt.is_some()) // generating melody while we can
+            .filter_map(|note_opt| note_opt.map(|note| fixed_to_tempo(note, &lengths, &delays))), // fixing everything to match tempo
     );
 
     Some((bpm, generated_lead))
 }
+
+/// Generates harmony from the given lead.
+/// Chords in harmony are generated according
+/// to the Aeolian mode and Melodic Minor scale:
+/// 1. Minor triad (tonic note)
+/// 2. Diminished triad (T)
+/// 3. Augmented triad (TS)
+/// 4. Minor triad (TST)
+/// 5. Major triad (TSTT)
+/// 6. Minor triad (TSTTS)
+/// 7. Dominant seventh (TSTTSTS)
+///
+/// However, harmony is composed to match the scale,
+/// not chords, so fixing algorithm is also used in generation process.
+///
+/// Notes for harmonies are generated with the next algorithm:
+/// First note copies the first note in the lead,
+/// then it produces a fixed chord according to the picked note,
+/// then it either picks the next note (low probability) or
+/// extends current chord with the length + delay of the next note
 
 #[inline]
 pub fn generate_harmony_from_lead(
@@ -457,6 +597,7 @@ pub fn generate_harmony_from_lead(
 ) -> Vec<ChordData> {
     let tonic_note = Note::from(MTNote::new(key, 5));
 
+    // Map of chords for Aeolian mode
     let aeolian_chord_progression = HashMap::from([
         (format!("{}", key), (Quality::Minor, Number::Triad)),
         (
@@ -489,11 +630,13 @@ pub fn generate_harmony_from_lead(
         .iter()
         .skip(1)
         .fold(vec![generated_lead[0]], |mut acc, &note| {
+            // With probability 1 : 4 picks the note or extends chords
+
             match rand::thread_rng().gen::<u32>() % 5 {
                 NOTE_TAKE => acc.push(note),
 
                 _ => {
-                    // Extend last note
+                    // Extend current chord from the current note
 
                     let last_note = *acc.last().unwrap();
 
@@ -507,6 +650,8 @@ pub fn generate_harmony_from_lead(
         })
         .into_iter()
         .map(|note| {
+            // Constructs and fixes chords from the picked notes
+
             let (quality, number) = *aeolian_chord_progression
                 .get(&format!("{}", PitchClass::from(note.get_note())))
                 .unwrap_or(&(Quality::Minor, Number::Triad));
@@ -522,6 +667,9 @@ pub fn generate_harmony_from_lead(
 
             println!("CHORD: {:?}", notes);
 
+            // Removes the delays from the notes in the chord,
+            // so all notes will play altogether
+
             notes.iter_mut().skip(1).for_each(|n| {
                 let zero_delay_note = n.clone_with_new_delay(0);
                 *n = zero_delay_note;
@@ -532,6 +680,9 @@ pub fn generate_harmony_from_lead(
         .collect()
 }
 
+/// Generates tonic lead note with the given key.
+/// All produced notes lie on the 4-th octave
+
 #[inline]
 fn generate_tonic_lead_note(
     key: PitchClass,
@@ -541,6 +692,10 @@ fn generate_tonic_lead_note(
 ) -> NoteData {
     NoteData::new(Note::from(MTNote::new(key, 4)), velocity, 0, length, delay)
 }
+
+/// Fixes note's pitch to lie on the scale.
+/// Note with closest pitch on scale is chosen and produced.
+/// If note is already on the scale, returns the same note
 
 #[inline]
 fn fix_note_to_closest_scaled(note: NoteData, scale_notes: &Vec<Note>) -> NoteData {
@@ -554,6 +709,12 @@ fn fix_note_to_closest_scaled(note: NoteData, scale_notes: &Vec<Note>) -> NoteDa
             .unwrap_or(note),
     }
 }
+
+/// Randomizes lead by increasing or decreasing
+/// pitches for all notes in the lead
+/// (up or down by 0..=3 notes from scale).
+/// All produced notes lie on the scale.
+/// All notes from the lead either upped or downed altogether
 
 #[inline]
 pub fn randomize_lead(

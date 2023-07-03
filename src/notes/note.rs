@@ -3,6 +3,8 @@ use std::{cmp::Ordering, iter::Zip, ops::RangeFrom, ops::Sub};
 use strum::IntoEnumIterator;
 use strum_macros::EnumIter;
 
+/// All notes that adequately may be used in the MIDI file
+
 #[derive(EnumIter, Copy, Clone, Eq, PartialEq, Debug, Hash)]
 pub enum Note {
     A0,
@@ -116,10 +118,20 @@ pub enum Note {
 }
 
 impl Note {
+    /// Constructs an iterator of pairs (note, midi value)
+
     #[inline]
     pub fn midi_iter() -> Zip<NoteIter, RangeFrom<u8>> {
         Self::iter().zip(21..)
     }
+
+    /// Gets midi value of the note
+    ///
+    /// # Example
+    /// ```
+    /// use music_generator::notes::note::Note;
+    /// assert_eq!(Note::A4.midi(), 69)
+    /// ```
 
     #[inline]
     pub fn midi(&self) -> u8 {
@@ -129,47 +141,137 @@ impl Note {
             .1
     }
 
+    /// Constructs the note from the given midi value.
+    /// Value have to be in range (21..=128)
+    ///
+    /// # Example
+    /// ```
+    /// use music_generator::notes::note::Note;
+    /// assert_eq!(Note::from_midi_or_none(69), Some(Note::A4));
+    /// assert_eq!(Note::from_midi_or_none(130), None)
+    /// ```
+
     #[inline]
-    pub fn from_byte_or_none(semitones: u8) -> Option<Self> {
+    pub fn from_midi_or_none(midi_value: u8) -> Option<Self> {
         Self::midi_iter()
-            .find(|&(_, midi)| midi == semitones)
+            .find(|&(_, midi)| midi == midi_value)
             .map(|(note, _)| note)
     }
 
+    /// Increases note's pitch with the given number of semitones
+    ///
+    /// # Example
+    /// ```
+    /// use music_generator::notes::note::Note;
+    /// assert_eq!(Note::A4.up(7), Some(Note::E5))
+    /// ```
+
     #[inline]
     pub fn up(&self, semitones: u8) -> Option<Self> {
-        Self::from_byte_or_none(self.midi() + semitones)
+        Self::from_midi_or_none(self.midi() + semitones)
     }
+
+    /// Increases note's pitch with the given number of semitones
+    ///
+    /// # Safety
+    /// This version does not checks the correctness.
+    /// See [Note::up] for the safe version
+    ///
+    /// # Example
+    /// ```
+    /// use music_generator::notes::note::Note;
+    /// assert_eq!(unsafe { Note::A4.up_unchecked(7) }, Note::E5)
+    /// ```
 
     #[inline]
     pub unsafe fn up_unchecked(&self, semitones: u8) -> Self {
         self.up(semitones).unwrap_unchecked()
     }
 
+    /// Decreases note's pitch with the given number of semitones
+    ///
+    /// # Example
+    /// ```
+    /// use music_generator::notes::note::Note;
+    /// assert_eq!(Note::A4.down(7), Some(Note::D4))
+    /// ```
+
     #[inline]
     pub fn down(&self, semitones: u8) -> Option<Self> {
-        Self::from_byte_or_none(self.midi() - semitones)
+        Self::from_midi_or_none(self.midi() - semitones)
     }
+
+    /// Decreases note's pitch with the given number of semitones
+    ///
+    /// # Safety
+    /// This version does not checks the correctness.
+    /// See [Note::down] for the safe version
+    ///
+    /// # Example
+    /// ```
+    /// use music_generator::notes::note::Note;
+    /// assert_eq!(unsafe { Note::A4.down_unchecked(7) }, Note::D4)
+    /// ```
 
     #[inline]
     pub unsafe fn down_unchecked(&self, semitones: u8) -> Self {
         self.down(semitones).unwrap_unchecked()
     }
 
+    /// Increases note's pitch by an octave
+    ///
+    /// # Example
+    /// ```
+    /// use music_generator::notes::note::Note;
+    /// assert_eq!(Note::A4.octave_up(), Some(Note::A5))
+    /// ```
+
     #[inline]
     pub fn octave_up(&self) -> Option<Self> {
         self.up(12)
     }
+
+    /// Increases note's pitch by an octave
+    ///
+    /// # Safety
+    /// This version does not checks the correctness.
+    /// See [Note::octave_up] for the safe version
+    ///
+    /// # Example
+    /// ```
+    /// use music_generator::notes::note::Note;
+    /// assert_eq!(unsafe { Note::A4.octave_up_unchecked() }, Note::A5)
+    /// ```
 
     #[inline]
     pub unsafe fn octave_up_unchecked(&self) -> Self {
         self.octave_up().unwrap_unchecked()
     }
 
+    /// Lowers note's pitch by an octave
+    ///
+    /// # Example
+    /// ```
+    /// use music_generator::notes::note::Note;
+    /// assert_eq!(Note::A4.octave_down(), Some(Note::A3))
+    /// ```
+
     #[inline]
     pub fn octave_down(&self) -> Option<Self> {
         self.down(12)
     }
+
+    /// Lowers note's pitch by an octave
+    ///
+    /// # Safety
+    /// This version does not checks the correctness.
+    /// See [Note::octave_down] for the safe version
+    ///
+    /// # Example
+    /// ```
+    /// use music_generator::notes::note::Note;
+    /// assert_eq!(unsafe { Note::A4.octave_down_unchecked() }, Note::A3)
+    /// ```
 
     #[inline]
     pub unsafe fn octave_down_unchecked(&self) -> Self {
@@ -178,9 +280,12 @@ impl Note {
 }
 
 impl From<u8> for Note {
+    /// Constructs the note from the given midi value.
+    /// Value have to be in range (21..=128)
+
     #[inline]
     fn from(value: u8) -> Self {
-        Self::from_byte_or_none(value).expect("Illegal MIDI value when converting from u8 to Note")
+        Self::from_midi_or_none(value).expect("Illegal MIDI value when converting from u8 to Note")
     }
 }
 
@@ -208,6 +313,8 @@ impl From<MTNote> for Note {
 }
 
 impl PartialOrd for Note {
+    /// Compares notes by their MIDI value
+
     #[inline]
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         self.midi().partial_cmp(&other.midi())
@@ -215,6 +322,8 @@ impl PartialOrd for Note {
 }
 
 impl Ord for Note {
+    /// Compares notes by their MIDI value
+
     #[inline]
     fn cmp(&self, other: &Self) -> Ordering {
         self.midi().cmp(&other.midi())
@@ -223,6 +332,8 @@ impl Ord for Note {
 
 impl Sub for Note {
     type Output = i8;
+
+    /// Calculates the difference between two notes in semitones
 
     #[inline]
     fn sub(self, rhs: Self) -> Self::Output {
