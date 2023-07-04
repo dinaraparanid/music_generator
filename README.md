@@ -13,10 +13,4 @@ For the lead melody, next algorithm is used:
 4. Pause with 3/16 and greater are not allowed.
 5. Chosen notes are close to the key and lie on scale
 
-### Generated results
-
-[Example with D# key](D#-2023-07-02_15:40:47.519650174_+03:00.mid)
-
-[Example with E key](E-2023-07-02_15:51:41.962661309_+03:00.mid)
-
-[Example with F# key](F#-2023-07-02_23:02:59.680187162_+03:00.mid)
+Full report and project's description are attached as the report and the presentation.
