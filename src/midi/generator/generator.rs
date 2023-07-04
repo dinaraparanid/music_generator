@@ -25,15 +25,17 @@ const DIRECTION_STAY: u32 = 2;
 const NOTE_TAKE: u32 = 0;
 
 /// Generates random key from
-/// the set of [D#, F#, G#, E]
+/// the set of [D#, E, F, F#, G, G#]
 
 #[inline]
 pub fn generate_key() -> PitchClass {
     let mut keys = vec![
         PitchClass::Ds,
-        PitchClass::Fs,
-        PitchClass::Gs,
         PitchClass::E,
+        PitchClass::F,
+        PitchClass::Fs,
+        PitchClass::G,
+        PitchClass::Gs,
     ];
 
     random_from_vec(&mut keys).unwrap()
@@ -283,7 +285,7 @@ fn generate_even_melody(
 
     randomize_with_pi(melody_len as usize / 3)
         .into_iter()
-        .map(|x| x % 3)
+        .map(|x| x % 2)
         .map(|dir| randomize_lead(melody_3.clone(), scale_notes, dir))
         .flatten()
         .collect()
@@ -661,7 +663,7 @@ pub fn generate_harmony_from_lead(
                 .into_iter()
                 .map(Note::from)
                 .map(|nt| nt.octave_down().unwrap())
-                .map(|nt| note.clone_with_new_note(nt).clone_with_velocity(50))
+                .map(|nt| note.clone_with_new_note(nt).clone_with_velocity(40))
                 .map(|note| fix_note_to_closest_scaled(note, scale_notes))
                 .collect::<Vec<_>>();
 
@@ -737,8 +739,6 @@ pub fn randomize_lead(
                 get_scaled(note.get_note(), scale_notes, |pos| pos - diff)
                     .unwrap_or(note.get_note()),
             ),
-
-            DIRECTION_STAY => note,
 
             _ => unreachable!(),
         })

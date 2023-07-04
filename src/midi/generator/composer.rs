@@ -74,7 +74,7 @@ where
 {
     let (leads, harmonies): (Vec<Vec<Vec<Message>>>, Vec<Vec<Vec<Message>>>) = randomize_with_pi(4)
         .into_iter()
-        .map(|x| x % 3)
+        .map(|x| x % 2)
         .map(|direction| randomize_lead(generated_lead.clone(), scale_notes, direction))
         .map(|lead| {
             let harmony = generate_harmony_from_lead(key, &lead, scale_notes);
