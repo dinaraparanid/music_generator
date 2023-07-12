@@ -18,8 +18,8 @@ use rust_music_theory::{
 
 use std::collections::HashMap;
 
-const DIRECTION_UP: u32 = 0;
-const DIRECTION_DOWN: u32 = 1;
+pub const DIRECTION_UP: u32 = 0;
+pub const DIRECTION_DOWN: u32 = 1;
 const DIRECTION_STAY: u32 = 2;
 
 const NOTE_TAKE: u32 = 0;
@@ -139,7 +139,7 @@ fn take_rand_close_note(
     )
 }
 
-/// Generates both BPM (95..=115) and the lead melody.
+/// Generates the lead melody from the given Key, scale and BPM.
 /// For the lead melody, next algorithm is used:
 /// Separates bar onto 16 parts, then for each
 /// position either puts note with length 1/16 of bar,
@@ -148,14 +148,16 @@ fn take_rand_close_note(
 /// Chosen notes are close to the key and lie on scale
 
 #[inline]
-pub fn generate_lead_melody(key: PitchClass, scale_notes: &Vec<Note>) -> (impl BPM, Vec<NoteData>) {
-    let mut rng = rand::thread_rng();
-    let bpm = rng.gen_range(95..=115);
+pub fn generate_lead_melody_with_bpm(
+    key: PitchClass,
+    scale_notes: &Vec<Note>,
+    bpm: impl BPM,
+) -> Vec<NoteData> {
     let bar_time = bpm.get_bar_time().as_millis() as DeltaTime;
-
     let single_len = get_bar_ratio(bar_time, 4);
     let tonic_note = generate_tonic_lead_note(key, 80, single_len, 0);
     let mut is_big_delay_used = false;
+    let mut rng = rand::thread_rng();
 
     let mut generated_lead = (4..32)
         .step_by(4)
@@ -211,7 +213,22 @@ pub fn generate_lead_melody(key: PitchClass, scale_notes: &Vec<Note>) -> (impl B
         });
 
     generated_lead.push(tonic_note);
-    (bpm, generated_lead)
+    generated_lead
+}
+
+/// Generates both BPM (95..=115) and the lead melody.
+/// For the lead melody, next algorithm is used:
+/// Separates bar onto 16 parts, then for each
+/// position either puts note with length 1/16 of bar,
+/// or skips it. Only single pause with 2/16 length is allowed
+/// Pause with 3/16 and greater are not allowed.
+/// Chosen notes are close to the key and lie on scale
+
+#[inline]
+pub fn generate_lead_melody(key: PitchClass, scale_notes: &Vec<Note>) -> (impl BPM, Vec<NoteData>) {
+    let mut rng = rand::thread_rng();
+    let bpm = rng.gen_range(95..=115);
+    (bpm, generate_lead_melody_with_bpm(key, scale_notes, bpm))
 }
 
 /// Generates BPM, melody len and the melody itself with even/odd algorithm.
@@ -712,6 +729,43 @@ fn fix_note_to_closest_scaled(note: NoteData, scale_notes: &Vec<Note>) -> NoteDa
     }
 }
 
+#[inline]
+fn randomize_note_with_given_diff(
+    note: NoteData,
+    scale_notes: &Vec<Note>,
+    direction: u32,
+    diff: usize,
+) -> NoteData {
+    let note = match direction {
+        DIRECTION_UP => note.clone_with_new_note(
+            get_scaled(note.get_note(), scale_notes, |pos| pos + diff).unwrap_or(note.get_note()),
+        ),
+
+        DIRECTION_DOWN => note.clone_with_new_note(
+            get_scaled(note.get_note(), scale_notes, |pos| pos - diff).unwrap_or(note.get_note()),
+        ),
+
+        _ => unreachable!(),
+    };
+
+    match scale_notes.contains(&note.get_note()) {
+        true => note,
+        false => fix_note_to_closest_scaled(note, scale_notes),
+    }
+}
+
+/// Randomizes note by increasing or decreasing pitch
+/// (up or down by 0..=3 notes from scale).
+/// All produced notes lie on the scale
+
+#[inline]
+pub fn randomize_note(note: NoteData, scale_notes: &Vec<Note>) -> NoteData {
+    let mut diffs = (0..=3).collect::<Vec<_>>();
+    let diff = random_from_vec(&mut diffs).unwrap();
+    let direction = random_from_vec(&mut vec![DIRECTION_UP, DIRECTION_DOWN]).unwrap();
+    randomize_note_with_given_diff(note, scale_notes, direction, diff)
+}
+
 /// Randomizes lead by increasing or decreasing
 /// pitches for all notes in the lead
 /// (up or down by 0..=3 notes from scale).
@@ -729,22 +783,6 @@ pub fn randomize_lead(
 
     generated_lead
         .into_iter()
-        .map(|note| match direction {
-            DIRECTION_UP => note.clone_with_new_note(
-                get_scaled(note.get_note(), scale_notes, |pos| pos + diff)
-                    .unwrap_or(note.get_note()),
-            ),
-
-            DIRECTION_DOWN => note.clone_with_new_note(
-                get_scaled(note.get_note(), scale_notes, |pos| pos - diff)
-                    .unwrap_or(note.get_note()),
-            ),
-
-            _ => unreachable!(),
-        })
-        .map(|note| match scale_notes.contains(&note.get_note()) {
-            true => note,
-            false => fix_note_to_closest_scaled(note, scale_notes),
-        })
+        .map(|note| randomize_note_with_given_diff(note, scale_notes, direction, diff))
         .collect::<Vec<_>>()
 }

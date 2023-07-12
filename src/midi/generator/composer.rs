@@ -1,14 +1,12 @@
 use crate::{
     midi::generator::{
         generator::{generate_harmony_from_lead, randomize_lead},
-        get_bar_ratio, randomize_with_pi,
+        randomize_with_pi,
     },
     notes::{note::Note, note_data::*, ChordData},
 };
 
 use ghakuf::messages::Message;
-use itertools::Itertools;
-use rand::prelude::SliceRandom;
 use rust_music_theory::note::PitchClass;
 
 /// Constructs vector of ON and OFF MIDI events.

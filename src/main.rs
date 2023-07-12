@@ -1,19 +1,17 @@
 use chrono::Local;
 
-use music_generator::{
-    midi::{
-        bpm::BPM,
-        generator::{
-            composer::*,
-            generator::{generate_key, generate_lead_melody},
-        },
-    },
-    notes::note::Note,
-};
-
 use ghakuf::{
     messages::{Message, MetaEvent, MidiEvent},
     writer::Writer,
+};
+
+use music_generator::{
+    genetic::generate_lead_with_genetic_algorithm,
+    midi::{
+        bpm::BPM,
+        generator::{composer::*, generator::generate_key},
+    },
+    notes::note::Note,
 };
 
 use rust_music_theory::{note::Notes, scale::*};
@@ -51,7 +49,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     println!("SCALE NOTES: {:?}\n", scale_notes);
 
-    let (bpm, generated_lead) = generate_lead_melody(key, &scale_notes);
+    let desired_fitness = 0.6;
+    let mutation_rate = 0.2;
+
+    let (bpm, generated_lead) =
+        generate_lead_with_genetic_algorithm(key, &scale_notes, desired_fitness, mutation_rate)
+            .expect("Failed to generate lead with genetic algorithm");
 
     println!("BPM: {}", bpm);
     println!("LEAD: {:?}", generated_lead);
@@ -99,18 +102,18 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     lead_midi_messages.iter().for_each(|m| midi_writer.push(m));
     midi_writer.push(&end_of_track_msg);
 
-    midi_writer.push(&track_change_msg);
+    // midi_writer.push(&track_change_msg);
 
     // Pushes harmony messages to the event holder
-    harmony_midi_messages
-        .iter()
-        .for_each(|m| midi_writer.push(m));
+    // harmony_midi_messages
+    //     .iter()
+    //     .for_each(|m| midi_writer.push(m));
 
-    midi_writer.push(&end_of_track_msg);
+    // midi_writer.push(&end_of_track_msg);
 
     std::fs::create_dir("./generated").unwrap_or_default();
 
-    let path = format!("./generated/{}-{}.mid", key, Local::now());
+    let path = format!("./generated/{}-{}BPM-{}.mid", key, bpm, Local::now());
     let path = Path::new(path.as_str());
     println!("PATH: {:?}", path.to_path_buf());
 
