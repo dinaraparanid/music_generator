@@ -30,12 +30,18 @@ const NOTE_TAKE: u32 = 0;
 #[inline]
 pub fn generate_key() -> PitchClass {
     let mut keys = vec![
+        PitchClass::C,
+        PitchClass::Cs,
+        PitchClass::D,
         PitchClass::Ds,
         PitchClass::E,
         PitchClass::F,
         PitchClass::Fs,
         PitchClass::G,
         PitchClass::Gs,
+        PitchClass::A,
+        PitchClass::As,
+        PitchClass::B,
     ];
 
     random_from_vec(&mut keys).unwrap()
@@ -104,7 +110,7 @@ where
 fn rand_close_note(tonic_note: Note, scale_notes: &Vec<Note>, up_down_direction: u32) -> Note {
     match up_down_direction {
         DIRECTION_UP => get_scaled(tonic_note, scale_notes, |pos| {
-            let mut notes_dif = vec![1, 2];
+            let mut notes_dif = (0..=2).collect::<Vec<_>>();
             pos + random_from_vec(&mut notes_dif).unwrap()
         })
         .unwrap_or(tonic_note),
@@ -156,17 +162,18 @@ pub fn generate_lead_melody_with_bpm(
     let bar_time = bpm.get_bar_time().as_millis() as DeltaTime;
     let single_len = get_bar_ratio(bar_time, 4);
     let tonic_note = generate_tonic_lead_note(key, 80, single_len, 0);
+
     let mut is_big_delay_used = false;
     let mut rng = rand::thread_rng();
 
-    let mut generated_lead = (4..32)
+    let mut generated_lead = (4..64)
         .step_by(4)
         .fold(vec![tonic_note], |mut lead, position| {
             let prev_note = *lead.last().unwrap();
             let cur_delay = position - prev_note.get_start();
 
             match cur_delay {
-                12 => {
+                16 => {
                     // Distance is too big, must take note
                     is_big_delay_used = true;
 
@@ -180,23 +187,8 @@ pub fn generate_lead_melody_with_bpm(
                     ))
                 }
 
-                8 => {
-                    // If big delay was used, must take a note
-
-                    if is_big_delay_used {
-                        lead.push(take_rand_close_note(
-                            tonic_note.get_note(),
-                            scale_notes,
-                            position,
-                            single_len,
-                            bar_time,
-                            cur_delay,
-                        ))
-                    }
-                }
-
                 _ => {
-                    if rng.gen_bool(0.5) {
+                    if rng.gen_bool(0.75) {
                         lead.push(take_rand_close_note(
                             tonic_note.get_note(),
                             scale_notes,
@@ -742,7 +734,7 @@ fn randomize_note_with_given_diff(
         ),
 
         DIRECTION_DOWN => note.clone_with_new_note(
-            get_scaled(note.get_note(), scale_notes, |pos| pos - diff).unwrap_or(note.get_note()),
+            get_scaled(note.get_note(), scale_notes, |pos| pos - 1).unwrap_or(note.get_note()),
         ),
 
         _ => unreachable!(),
@@ -760,7 +752,7 @@ fn randomize_note_with_given_diff(
 
 #[inline]
 pub fn randomize_note(note: NoteData, scale_notes: &Vec<Note>) -> NoteData {
-    let mut diffs = (0..=3).collect::<Vec<_>>();
+    let mut diffs = (0..=6).collect::<Vec<_>>();
     let diff = random_from_vec(&mut diffs).unwrap();
     let direction = random_from_vec(&mut vec![DIRECTION_UP, DIRECTION_DOWN]).unwrap();
     randomize_note_with_given_diff(note, scale_notes, direction, diff)

@@ -6,7 +6,7 @@ use std::{
     path::{Path, PathBuf},
 };
 
-const MIDI_PATH: &str = "./midi";
+const MIDI_PATH: &str = "./genetic_samples";
 
 /// Extracts all notes from the `midi` folder from all files.
 /// Notes are parsed from the MIDI events in files.
@@ -14,15 +14,8 @@ const MIDI_PATH: &str = "./midi";
 /// Fetching and scanning is implemented asynchronously with
 /// native polling mechanism (epoll for Linux, kqueue for FreeBSD),
 /// using [monoio] crate
-///
-/// # Deprecated
-/// There were a lot of issues with parsing lead notes,
-/// because it is not easy to contrast lead and harmony in the single MIDI file.
-/// As a result, melodies were to random and the result is too unstable.
-/// Currently, abandoned, but may be integrated in the future
 
 #[inline]
-#[deprecated]
 pub async fn extract_notes() -> Result<Vec<(PathBuf, Vec<NoteData>)>, Box<dyn std::error::Error>> {
     let lead_path = Path::new(MIDI_PATH);
 

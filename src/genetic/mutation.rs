@@ -11,7 +11,7 @@ pub fn mutate(lead: Vec<NoteData>, scale_notes: &Vec<Note>, mutation_rate: f32) 
 
     lead.into_iter()
         .map(|note| {
-            if rng.gen_range(0.0..1.0) <= mutation_rate {
+            if rng.gen_bool(mutation_rate as f64) {
                 randomize_note(note, scale_notes)
             } else {
                 note

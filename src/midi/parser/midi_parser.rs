@@ -1,16 +1,11 @@
 use crate::notes::{note::Note, note_data::*};
+use ghakuf::messages::MetaEvent;
 use ghakuf::{messages::MidiEvent, reader::Handler};
 use itertools::Itertools;
 use std::collections::{BTreeMap, HashMap};
 
 /// Parses a single .mid file and converts
 /// all events from it to the [NoteData]
-///
-/// # Deprecated
-/// There were a lot of issues with parsing lead notes,
-/// because it is not easy to contrast lead and harmony in the single MIDI file.
-/// As a result, melodies were to random and the result is too unstable.
-/// Currently, abandoned, but may be integrated in the future
 
 #[derive(Debug, Default)]
 pub struct MidiParser {
@@ -90,6 +85,17 @@ impl Handler for MidiParser {
                     .entry(note)
                     .or_insert(Vec::new())
                     .push((vel, (start, self.delta_timer - start, delta_time)))
+            }
+
+            _ => {}
+        }
+    }
+
+    #[inline]
+    fn meta_event(&mut self, delta_time: u32, event: &MetaEvent, data: &Vec<u8>) {
+        match event {
+            MetaEvent::SetTempo => {
+                println!("TEMPO: {:?}", *data);
             }
 
             _ => {}

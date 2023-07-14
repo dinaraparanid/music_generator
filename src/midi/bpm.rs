@@ -14,7 +14,7 @@ pub trait BPM: Clone + Copy + Eq + Ord + Sized + Display {
 
     #[inline]
     fn get_tempo(&self) -> u64 {
-        60000000 / self.as_u64()
+        60_000_000 / self.as_u64()
     }
 }
 
