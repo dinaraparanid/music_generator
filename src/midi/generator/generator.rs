@@ -163,49 +163,77 @@ pub fn generate_lead_melody_with_bpm(
     let single_len = get_bar_ratio(bar_time, 4);
     let tonic_note = generate_tonic_lead_note(key, 80, single_len, 0);
 
-    let mut is_big_delay_used = false;
-    let mut rng = rand::thread_rng();
-
-    let mut generated_lead = (4..64)
-        .step_by(4)
-        .fold(vec![tonic_note], |mut lead, position| {
-            let prev_note = *lead.last().unwrap();
-            let cur_delay = position - prev_note.get_start();
-
-            match cur_delay {
-                16 => {
-                    // Distance is too big, must take note
-                    is_big_delay_used = true;
-
-                    lead.push(take_rand_close_note(
-                        tonic_note.get_note(),
-                        scale_notes,
-                        position,
-                        single_len,
-                        bar_time,
-                        cur_delay,
-                    ))
-                }
-
-                _ => {
-                    if rng.gen_bool(0.75) {
-                        lead.push(take_rand_close_note(
-                            tonic_note.get_note(),
-                            scale_notes,
-                            position,
-                            single_len,
-                            bar_time,
-                            cur_delay,
-                        ))
-                    }
-                }
-            };
-
-            lead
-        });
+    let mut generated_lead = (4..64).step_by(4).fold(vec![tonic_note], |lead, position| {
+        push_next_note_or_skip(
+            bar_time,
+            single_len,
+            tonic_note,
+            scale_notes,
+            lead,
+            position,
+        )
+    });
 
     generated_lead.push(tonic_note);
     generated_lead
+}
+
+#[inline]
+fn push_next_note_or_skip(
+    bar_time: DeltaTime,
+    single_len: DeltaTime,
+    tonic_note: NoteData,
+    scale_notes: &Vec<Note>,
+    mut lead: Vec<NoteData>,
+    position: DeltaTime,
+) -> Vec<NoteData> {
+    let mut rng = rand::thread_rng();
+    let prev_note = *lead.last().unwrap();
+    let cur_delay = position - prev_note.get_start();
+
+    let mut push_next = || {
+        push_next_note(
+            bar_time,
+            single_len,
+            tonic_note,
+            scale_notes,
+            &mut lead,
+            position,
+            cur_delay,
+        )
+    };
+
+    match cur_delay {
+        16 => push_next(),
+
+        _ => {
+            if rng.gen_bool(0.75) {
+                push_next()
+            }
+        }
+    };
+
+    lead.into_iter().collect()
+}
+
+#[inline]
+fn push_next_note(
+    bar_time: DeltaTime,
+    single_len: DeltaTime,
+    tonic_note: NoteData,
+    scale_notes: &Vec<Note>,
+    lead: &mut Vec<NoteData>,
+    position: DeltaTime,
+    cur_delay: DeltaTime,
+) {
+    lead.push(take_rand_close_note(
+        tonic_note.get_note(),
+        scale_notes,
+        position,
+        single_len,
+        bar_time,
+        cur_delay,
+    ))
 }
 
 /// Generates both BPM (95..=115) and the lead melody.
@@ -580,6 +608,8 @@ fn try_generate_lead_from_analyze(
     Some((bpm, generated_lead))
 }
 
+type ChordProgression = HashMap<String, (Quality, Number)>;
+
 /// Generates harmony from the given lead.
 /// Chords in harmony are generated according
 /// to the Aeolian mode and Melodic Minor scale:
@@ -606,10 +636,25 @@ pub fn generate_harmony_from_lead(
     generated_lead: &Vec<NoteData>,
     scale_notes: &Vec<Note>,
 ) -> Vec<ChordData> {
+    // Map of chords for Aeolian mode
+    let aeolian_chord_progression = aeolian_chord_progression(key);
+
+    generated_lead
+        .iter()
+        .skip(1)
+        .fold(vec![generated_lead[0]], new_chord_note_or_extend)
+        .into_iter()
+        .map(|note| build_chord_from(note, &aeolian_chord_progression, scale_notes))
+        .collect()
+}
+
+/// Map of chords for Aeolian mode
+
+#[inline]
+fn aeolian_chord_progression(key: PitchClass) -> ChordProgression {
     let tonic_note = Note::from(MTNote::new(key, 5));
 
-    // Map of chords for Aeolian mode
-    let aeolian_chord_progression = HashMap::from([
+    HashMap::from([
         (format!("{}", key), (Quality::Minor, Number::Triad)),
         (
             format!("{}", PitchClass::from(tonic_note.up(2).unwrap())),
@@ -635,60 +680,61 @@ pub fn generate_harmony_from_lead(
             format!("{}", PitchClass::from(tonic_note.up(11).unwrap())),
             (Quality::Dominant, Number::Seventh),
         ),
-    ]);
+    ])
+}
 
-    generated_lead
-        .iter()
-        .skip(1)
-        .fold(vec![generated_lead[0]], |mut acc, &note| {
-            // With probability 1 : 4 picks the note or extends chords
+/// With probability 1 : 4 picks the note or extends chords
 
-            match rand::thread_rng().gen::<u32>() % 5 {
-                NOTE_TAKE => acc.push(note),
+#[inline]
+fn new_chord_note_or_extend(mut acc: Vec<NoteData>, note: &NoteData) -> Vec<NoteData> {
+    match rand::thread_rng().gen::<u32>() % 5 {
+        NOTE_TAKE => acc.push(*note),
 
-                _ => {
-                    // Extend current chord from the current note
+        _ => {
+            // Extend current chord from the current note
+            let last_note = *acc.last().unwrap();
 
-                    let last_note = *acc.last().unwrap();
+            *acc.last_mut().unwrap() = last_note.clone_with_new_length(
+                last_note.get_length() + note.get_delay() + note.get_length(),
+            )
+        }
+    }
 
-                    *acc.last_mut().unwrap() = last_note.clone_with_new_length(
-                        last_note.get_length() + note.get_delay() + note.get_length(),
-                    )
-                }
-            }
+    acc.into_iter().collect()
+}
 
-            acc
-        })
+/// Constructs and fixes chords from the picked notes
+
+#[inline]
+fn build_chord_from(
+    note: NoteData,
+    aeolian_chord_progression: &ChordProgression,
+    scale_notes: &Vec<Note>,
+) -> Vec<NoteData> {
+    let (quality, number) = *aeolian_chord_progression
+        .get(&format!("{}", PitchClass::from(note.get_note())))
+        .unwrap_or(&(Quality::Minor, Number::Triad));
+
+    let mut notes = Chord::new(PitchClass::from(note), quality, number)
+        .notes()
         .into_iter()
-        .map(|note| {
-            // Constructs and fixes chords from the picked notes
+        .map(Note::from)
+        .map(|nt| nt.octave_down().unwrap())
+        .map(|nt| note.clone_with_new_note(nt).clone_with_velocity(40))
+        .map(|note| fix_note_to_closest_scaled(note, scale_notes))
+        .collect::<Vec<_>>();
 
-            let (quality, number) = *aeolian_chord_progression
-                .get(&format!("{}", PitchClass::from(note.get_note())))
-                .unwrap_or(&(Quality::Minor, Number::Triad));
+    println!("CHORD: {:?}", notes);
 
-            let mut notes = Chord::new(PitchClass::from(note), quality, number)
-                .notes()
-                .into_iter()
-                .map(Note::from)
-                .map(|nt| nt.octave_down().unwrap())
-                .map(|nt| note.clone_with_new_note(nt).clone_with_velocity(40))
-                .map(|note| fix_note_to_closest_scaled(note, scale_notes))
-                .collect::<Vec<_>>();
+    // Removes the delays from the notes in the chord,
+    // so all notes will play altogether
 
-            println!("CHORD: {:?}", notes);
+    notes.iter_mut().skip(1).for_each(|n| {
+        let zero_delay_note = n.clone_with_new_delay(0);
+        *n = zero_delay_note;
+    });
 
-            // Removes the delays from the notes in the chord,
-            // so all notes will play altogether
-
-            notes.iter_mut().skip(1).for_each(|n| {
-                let zero_delay_note = n.clone_with_new_delay(0);
-                *n = zero_delay_note;
-            });
-
-            notes
-        })
-        .collect()
+    notes
 }
 
 /// Generates tonic lead note with the given key.

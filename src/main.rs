@@ -49,8 +49,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     println!("SCALE NOTES: {:?}\n", scale_notes);
 
-    let desired_fitness = 0.8;
-    let mutation_rate = 0.2;
+    let desired_fitness = 0.85;
+    let mutation_rate = 0.25;
 
     let (bpm, generated_lead) =
         generate_lead_with_genetic_algorithm(key, &scale_notes, desired_fitness, mutation_rate)

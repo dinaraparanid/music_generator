@@ -1,5 +1,4 @@
 use crate::notes::{note::Note, note_data::*};
-use ghakuf::messages::MetaEvent;
 use ghakuf::{messages::MidiEvent, reader::Handler};
 use itertools::Itertools;
 use std::collections::{BTreeMap, HashMap};
@@ -9,7 +8,7 @@ use std::collections::{BTreeMap, HashMap};
 
 #[derive(Debug, Default)]
 pub struct MidiParser {
-    notes: BTreeMap<Note, Vec<(Velocity, (DeltaTime, DeltaTime, DeltaTime))>>,
+    notes: BTreeMap<Note, Vec<(Velocity, DeltaTime, DeltaTime, DeltaTime)>>,
     delta_timer: DeltaTime,
     notes_on_hash: HashMap<Note, (Velocity, DeltaTime)>,
 }
@@ -35,7 +34,7 @@ impl MidiParser {
             .map(|(note, plays)| {
                 plays
                     .into_iter()
-                    .map(|(vel, (start, len, delay))| NoteData::new(note, vel, start, len, delay))
+                    .map(|(vel, start, len, delay)| NoteData::new(note, vel, start, len, delay))
                     .collect::<Vec<_>>()
             })
             .flatten()
@@ -81,21 +80,14 @@ impl Handler for MidiParser {
                 // Inserts new note data to the tree map,
                 // that sorts all notes in in according to the pitch
 
-                self.notes
-                    .entry(note)
-                    .or_insert(Vec::new())
-                    .push((vel, (start, self.delta_timer - start, delta_time)))
-            }
+                let note_len = self.delta_timer - start;
 
-            _ => {}
-        }
-    }
-
-    #[inline]
-    fn meta_event(&mut self, delta_time: u32, event: &MetaEvent, data: &Vec<u8>) {
-        match event {
-            MetaEvent::SetTempo => {
-                println!("TEMPO: {:?}", *data);
+                self.notes.entry(note).or_insert(Vec::new()).push((
+                    vel,
+                    start,
+                    note_len,
+                    delta_time - note_len,
+                ))
             }
 
             _ => {}

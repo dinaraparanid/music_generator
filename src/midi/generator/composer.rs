@@ -79,20 +79,22 @@ where
             (lead, harmony)
         })
         .map(|(leads, harmonies)| {
-            (
-                leads
-                    .into_iter()
-                    .map(|l| lead_composer(l))
-                    .collect::<Vec<_>>(),
-                harmonies
-                    .into_iter()
-                    .map(|c| harmony_composer(c))
-                    .collect::<Vec<_>>(),
-            )
+            let lead_msgs = leads
+                .into_iter()
+                .map(|l| lead_composer(l))
+                .collect::<Vec<_>>();
+
+            let harmony_msgs = harmonies
+                .into_iter()
+                .map(|c| harmony_composer(c))
+                .collect::<Vec<_>>();
+
+            (lead_msgs, harmony_msgs)
         })
         .unzip();
 
     let leads = leads.into_iter().flatten().flatten().collect::<Vec<_>>();
+    let leads = vec![leads.clone(); 2].into_iter().flatten().collect();
 
     let harmonies = harmonies
         .into_iter()
@@ -100,8 +102,7 @@ where
         .flatten()
         .collect::<Vec<_>>();
 
-    (
-        vec![leads.clone(); 2].into_iter().flatten().collect(),
-        vec![harmonies.clone(); 2].into_iter().flatten().collect(),
-    )
+    let harmonies = vec![harmonies.clone(); 2].into_iter().flatten().collect();
+
+    (leads, harmonies)
 }

@@ -68,35 +68,46 @@ fn get_bar_ratio(bar_time: DeltaTime, ratio: u32) -> DeltaTime {
     bar_time * ratio / 64
 }
 
+trait FixedToTempoNoteData {
+    fn with_fixed_to_tempo_length(self, lengths: &Vec<DeltaTime>) -> Self;
+    fn with_fixed_to_tempo_delay(self, delays: &Vec<DeltaTime>) -> Self;
+}
+
+impl FixedToTempoNoteData for NoteData {
+    #[inline]
+    fn with_fixed_to_tempo_length(self, lengths: &Vec<DeltaTime>) -> Self {
+        self.clone_with_new_length(
+            lengths
+                .iter()
+                .map(|&len| (len, (len as i32 - self.get_length() as i32).abs()))
+                .min_by_key(|(_, dif)| *dif)
+                .map(|(len, _)| len + randomize_with_pi(1)[0])
+                .unwrap_or(self.get_length()),
+        )
+    }
+
+    #[inline]
+    fn with_fixed_to_tempo_delay(self, delays: &Vec<DeltaTime>) -> Self {
+        self.clone_with_new_delay(
+            delays
+                .iter()
+                .map(|&delay| (delay, (delay as i32 - self.get_delay() as i32).abs()))
+                .min_by_key(|(_, dif)| *dif)
+                .map(|(delay, _)| delay + randomize_with_pi(1)[0])
+                .unwrap_or(self.get_delay()),
+        )
+    }
+}
+
 /// Fixing parsed MIDI notes to match
 /// the  appropriate lengths and delays,
 /// generated from the BPM
-///
-/// # Deprecated
-/// Idea of note parsing and analysis was
-/// abandoned in favour of pure generation.
-/// Yet, it may be useful in the future
 
 #[inline]
-#[deprecated]
 fn fixed_to_tempo(note: NoteData, lengths: &Vec<DeltaTime>, delays: &Vec<DeltaTime>) -> NoteData {
-    let new_note = note
-        .clone_with_new_length(
-            lengths
-                .iter()
-                .map(|&len| (len, (len as i32 - note.get_length() as i32).abs()))
-                .min_by_key(|(_, dif)| *dif)
-                .map(|(len, _)| len + randomize_with_pi(1)[0])
-                .unwrap_or(note.get_length()),
-        )
-        .clone_with_new_delay(
-            delays
-                .iter()
-                .map(|&delay| (delay, (delay as i32 - note.get_delay() as i32).abs()))
-                .min_by_key(|(_, dif)| *dif)
-                .map(|(delay, _)| delay + randomize_with_pi(1)[0])
-                .unwrap_or(note.get_delay()),
-        );
+    let fixed_velocity = std::cmp::min(60 + note.get_velocity(), 100);
 
-    new_note.clone_with_velocity(std::cmp::min(60 + new_note.get_velocity(), 100))
+    note.with_fixed_to_tempo_length(lengths)
+        .with_fixed_to_tempo_delay(delays)
+        .clone_with_velocity(fixed_velocity)
 }
