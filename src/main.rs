@@ -106,9 +106,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     midi_writer.push(&tempo_msg);
     midi_writer.push(&lead_instrument_msg);
     midi_writer.push(&end_of_track_msg);
-    midi_writer.push(&track_change_msg);
 
     // Pushes lead messages to the event holder
+    midi_writer.push(&track_change_msg);
     lead_midi_messages.iter().for_each(|m| midi_writer.push(m));
     midi_writer.push(&end_of_track_msg);
 

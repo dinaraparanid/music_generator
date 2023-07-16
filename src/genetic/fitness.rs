@@ -1,4 +1,5 @@
 use crate::{midi::bpm::BPM, notes::note_data::NoteData, WithNextIterable};
+use itertools::Itertools;
 
 #[inline]
 pub fn fitness(bpm: impl BPM, lead: &Vec<NoteData>, ideal_lead: &Vec<NoteData>) -> f32 {
@@ -24,11 +25,29 @@ pub fn fitness(bpm: impl BPM, lead: &Vec<NoteData>, ideal_lead: &Vec<NoteData>) 
         },
     );
 
-    if lead.len() <= 12 {
+    if is_ok_len(&lead) && !is_with_three_times_repetition(&lead) {
         fitness
     } else {
         0.0
     }
+}
+
+#[inline]
+fn is_ok_len(lead: &Vec<NoteData>) -> bool {
+    lead.len() <= 12
+}
+
+#[inline]
+fn is_with_three_times_repetition(lead: &Vec<NoteData>) -> bool {
+    lead.windows(3)
+        .map(|arr| {
+            arr.iter()
+                .map(|&x| x)
+                .collect_tuple::<(NoteData, NoteData, NoteData)>()
+                .unwrap()
+        })
+        .find(|(f, s, t)| f.get_note() == s.get_note() && s.get_note() == t.get_note())
+        .is_some()
 }
 
 #[inline]

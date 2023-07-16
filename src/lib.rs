@@ -1,5 +1,3 @@
-extern crate core;
-
 use std::{
     iter::{Skip, Zip},
     slice::Iter,
