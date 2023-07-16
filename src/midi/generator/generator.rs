@@ -189,7 +189,7 @@ fn push_next_note_or_skip(
 ) -> Vec<NoteData> {
     let mut rng = rand::thread_rng();
     let prev_note = *lead.last().unwrap();
-    let cur_delay = position - prev_note.get_start();
+    let cur_delay = position - prev_note.get_start() - 4;
 
     let mut push_next = || {
         push_next_note(

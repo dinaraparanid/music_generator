@@ -10,7 +10,7 @@ use std::collections::{BTreeMap, HashMap};
 pub struct MidiParser {
     notes: BTreeMap<Note, Vec<(Velocity, DeltaTime, DeltaTime, DeltaTime)>>,
     delta_timer: DeltaTime,
-    notes_on_hash: HashMap<Note, (Velocity, DeltaTime)>,
+    notes_on_hash: HashMap<Note, (Velocity, DeltaTime, DeltaTime)>,
 }
 
 impl MidiParser {
@@ -50,6 +50,7 @@ impl Handler for MidiParser {
         // to construct start in NoteData
 
         self.delta_timer += delta_time;
+        println!("DELTA: {delta_time}, event: {}", *event);
 
         match event {
             MidiEvent::NoteOn {
@@ -63,7 +64,7 @@ impl Handler for MidiParser {
 
                 self.notes_on_hash
                     .entry(note)
-                    .or_insert((*velocity, self.delta_timer));
+                    .or_insert((*velocity, self.delta_timer, delta_time));
             }
 
             MidiEvent::NoteOff {
@@ -75,19 +76,17 @@ impl Handler for MidiParser {
                 // finishing the construction of the NoteData
 
                 let note = Note::from(*note);
-                let (vel, start) = self.notes_on_hash.remove(&note).unwrap();
+                let (vel, start, delay) = self.notes_on_hash.remove(&note).unwrap();
 
                 // Inserts new note data to the tree map,
                 // that sorts all notes in in according to the pitch
 
                 let note_len = self.delta_timer - start;
 
-                self.notes.entry(note).or_insert(Vec::new()).push((
-                    vel,
-                    start,
-                    note_len,
-                    delta_time - note_len,
-                ))
+                self.notes
+                    .entry(note)
+                    .or_insert(Vec::new())
+                    .push((vel, start, note_len, delay))
             }
 
             _ => {}

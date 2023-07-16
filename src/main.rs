@@ -50,12 +50,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("SCALE NOTES: {:?}\n", scale_notes);
 
     let desired_fitness = 0.85;
-    let mutation_rate = 0.25;
+    let mutation_rate = 0.2;
 
     let (bpm, generated_lead) =
         generate_lead_with_genetic_algorithm(key, &scale_notes, desired_fitness, mutation_rate)
-            .await
-            .expect("Failed to generate lead with genetic algorithm");
+            .await;
 
     println!("BPM: {}", bpm);
     println!("LEAD: {:?}", generated_lead);
@@ -95,7 +94,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Initialise MIDI file with tempo and instrument
 
     midi_writer.push(&tempo_msg);
-    midi_writer.push(&lead_instrument_msg);
+    //midi_writer.push(&lead_instrument_msg);
     midi_writer.push(&end_of_track_msg);
     midi_writer.push(&track_change_msg);
 
@@ -103,14 +102,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     lead_midi_messages.iter().for_each(|m| midi_writer.push(m));
     midi_writer.push(&end_of_track_msg);
 
-    // midi_writer.push(&track_change_msg);
+    midi_writer.push(&track_change_msg);
 
     // Pushes harmony messages to the event holder
-    // harmony_midi_messages
-    //     .iter()
-    //     .for_each(|m| midi_writer.push(m));
+    harmony_midi_messages
+        .iter()
+        .for_each(|m| midi_writer.push(m));
 
-    // midi_writer.push(&end_of_track_msg);
+    midi_writer.push(&end_of_track_msg);
 
     std::fs::create_dir("./generated").unwrap_or_default();
 
