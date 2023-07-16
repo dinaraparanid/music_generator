@@ -47,6 +47,12 @@ pub fn generate_key() -> PitchClass {
     random_from_vec(&mut keys).unwrap()
 }
 
+#[inline]
+pub fn generate_bpm() -> impl BPM {
+    let mut rng = rand::thread_rng();
+    rng.gen_range(75..=110)
+}
+
 /// Generates number of notes in a melody.
 /// Number is in the set of 3..=12
 ///
@@ -207,7 +213,7 @@ fn push_next_note_or_skip(
         16 => push_next(),
 
         _ => {
-            if rng.gen_bool(0.75) {
+            if rng.gen_bool(0.25) {
                 push_next()
             }
         }

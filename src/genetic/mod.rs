@@ -26,13 +26,15 @@ type LeadPopulation = Vec<Vec<NoteData>>;
 #[inline]
 pub async fn generate_lead_with_genetic_algorithm(
     key: PitchClass,
+    bpm: impl BPM,
     scale_notes: &Vec<Note>,
     desired_fitness: f32,
     mutation_rate: f32,
-) -> (impl BPM, Vec<NoteData>) {
+) -> Vec<NoteData> {
     loop {
         let generated = try_generate_lead_with_genetic_algorithm(
             key,
+            bpm,
             scale_notes,
             desired_fitness,
             mutation_rate,
@@ -48,13 +50,11 @@ pub async fn generate_lead_with_genetic_algorithm(
 #[inline]
 async fn try_generate_lead_with_genetic_algorithm(
     key: PitchClass,
+    bpm: impl BPM,
     scale_notes: &Vec<Note>,
     desired_fitness: f32,
     mutation_rate: f32,
-) -> Option<(impl BPM, Vec<NoteData>)> {
-    let mut rng = rand::thread_rng();
-    let bpm = rng.gen_range(75..=110);
-
+) -> Option<Vec<NoteData>> {
     let mut ideal_leads = extract_notes().await.ok()?;
     let (path, ideal_lead) = random_from_vec(&mut ideal_leads)?;
 
@@ -96,13 +96,11 @@ async fn try_generate_lead_with_genetic_algorithm(
                 .position(|x| x == max_fitness)
                 .unwrap();
 
-            let ok_lead = population
+            population
                 .into_iter()
                 .skip(first_ok_fitness_ind)
                 .next()
-                .unwrap();
-
-            (bpm, ok_lead)
+                .unwrap()
         })
 }
 

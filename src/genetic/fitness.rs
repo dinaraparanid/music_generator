@@ -8,7 +8,7 @@ pub fn fitness(bpm: impl BPM, lead: &Vec<NoteData>, ideal_lead: &Vec<NoteData>) 
     let bar_time = bpm.get_bar_time().as_millis() as u32;
     let single_note_len = bar_time / 16;
 
-    lead.with_next().zip(ideal_lead.with_next()).fold(
+    let fitness = lead.with_next().zip(ideal_lead.with_next()).fold(
         note_match_ratio,
         |fit_val, ((next, prev), (ideal_next, ideal_prev))| {
             fit_val
@@ -22,7 +22,13 @@ pub fn fitness(bpm: impl BPM, lead: &Vec<NoteData>, ideal_lead: &Vec<NoteData>) 
                     single_note_len,
                 )
         },
-    )
+    );
+
+    if lead.len() <= 12 {
+        fitness
+    } else {
+        0.0
+    }
 }
 
 #[inline]

@@ -14,6 +14,9 @@ use music_generator::{
     notes::note::Note,
 };
 
+use futures::future::join_all;
+use music_generator::midi::generator::generator::generate_bpm;
+use rand::Rng;
 use rust_music_theory::{note::Notes, scale::*};
 use std::path::Path;
 
@@ -49,12 +52,19 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     println!("SCALE NOTES: {:?}\n", scale_notes);
 
-    let desired_fitness = 0.85;
-    let mutation_rate = 0.2;
+    let desired_fitness = 0.9;
+    let mutation_rate = 0.25;
+    let bpm = generate_bpm();
 
-    let (bpm, generated_lead) =
-        generate_lead_with_genetic_algorithm(key, &scale_notes, desired_fitness, mutation_rate)
-            .await;
+    let combined_leads_num = 2;
+
+    let generated_lead = join_all((0..combined_leads_num).map(|_| {
+        generate_lead_with_genetic_algorithm(key, bpm, &scale_notes, desired_fitness, mutation_rate)
+    }))
+    .await
+    .into_iter()
+    .flatten()
+    .collect::<Vec<_>>();
 
     println!("BPM: {}", bpm);
     println!("LEAD: {:?}", generated_lead);
@@ -88,13 +98,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let lead_instrument_msg = Message::MidiEvent {
         delta_time: 0,
-        event: MidiEvent::ProgramChange { ch: 0, program: 32 },
+        event: MidiEvent::ProgramChange { ch: 0, program: 5 },
     };
 
     // Initialise MIDI file with tempo and instrument
 
     midi_writer.push(&tempo_msg);
-    //midi_writer.push(&lead_instrument_msg);
+    midi_writer.push(&lead_instrument_msg);
     midi_writer.push(&end_of_track_msg);
     midi_writer.push(&track_change_msg);
 
