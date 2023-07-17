@@ -25,7 +25,11 @@ pub fn fitness(bpm: impl BPM, lead: &Vec<NoteData>, ideal_lead: &Vec<NoteData>) 
         },
     );
 
-    if is_ok_len(&lead) && !is_with_three_times_repetition(&lead) {
+    if is_ok_len(&lead)
+        && is_without_three_times_repetition(&lead)
+        && is_distance_between_notes_not_big(&lead)
+        && is_not_too_big_parts(&lead)
+    {
         fitness
     } else {
         0.0
@@ -38,7 +42,7 @@ fn is_ok_len(lead: &Vec<NoteData>) -> bool {
 }
 
 #[inline]
-fn is_with_three_times_repetition(lead: &Vec<NoteData>) -> bool {
+fn is_without_three_times_repetition(lead: &Vec<NoteData>) -> bool {
     lead.windows(3)
         .map(|arr| {
             arr.iter()
@@ -47,7 +51,23 @@ fn is_with_three_times_repetition(lead: &Vec<NoteData>) -> bool {
                 .unwrap()
         })
         .find(|(f, s, t)| f.get_note() == s.get_note() && s.get_note() == t.get_note())
-        .is_some()
+        .is_none()
+}
+
+#[inline]
+fn is_distance_between_notes_not_big(lead: &Vec<NoteData>) -> bool {
+    lead.with_next()
+        .all(|(next, prev)| next.get_note().midi().abs_diff(prev.get_note().midi()) < 7)
+}
+
+#[inline]
+fn is_not_too_big_parts(lead: &Vec<NoteData>) -> bool {
+    lead.iter()
+        .map(|x| x.get_delay())
+        .collect::<Vec<_>>()
+        .windows(6)
+        .find(|&arr| arr == [0, 0, 0, 0, 0, 0])
+        .is_none()
 }
 
 #[inline]
@@ -62,9 +82,7 @@ fn calc_fitness_for_next_note(
 ) -> f32 {
     let cur_delay = next.get_delay() / single_note_len;
     let next_delay = ideal_next.get_delay() / 32;
-
-    let delay_dif_match = cur_delay == next_delay;
-    let delay_dif_match = if delay_dif_match {
+    let delay_dif_match = if cur_delay == next_delay {
         note_match_ratio * 3.0 / 4.0
     } else {
         0.0

@@ -58,15 +58,9 @@ async fn try_generate_lead_with_genetic_algorithm(
     let mut ideal_leads = extract_notes().await.ok()?;
     let (path, ideal_lead) = random_from_vec(&mut ideal_leads)?;
 
-    let population = (0..)
-        .map(|_| generate_lead_melody_with_bpm(key, scale_notes, bpm))
-        .filter(|lead| lead.len() == ideal_lead.len())
-        .take(1000)
-        .collect::<Vec<_>>();
-
+    let population = initial_population(key, bpm, scale_notes, &ideal_lead);
     let fitness_values = next_fitness(bpm, &population, &ideal_lead);
     let max_fit = max_fitness(&fitness_values);
-
     let population_size = population.len();
 
     println!("Chosen lead: {:?}", path);
@@ -83,7 +77,6 @@ async fn try_generate_lead_with_genetic_algorithm(
                     next_population(&mut selected, scale_notes, mutation_rate, population_size);
 
                 *fitness_values = next_fitness(bpm, population, &ideal_lead);
-
                 *max_fit = max_fitness(fitness_values);
 
                 Some((population.clone(), fitness_values.clone(), *max_fit))
@@ -102,6 +95,20 @@ async fn try_generate_lead_with_genetic_algorithm(
                 .next()
                 .unwrap()
         })
+}
+
+#[inline]
+fn initial_population(
+    key: PitchClass,
+    bpm: impl BPM,
+    scale_notes: &Vec<Note>,
+    ideal_lead: &Vec<NoteData>,
+) -> LeadPopulation {
+    (0..)
+        .map(|_| generate_lead_melody_with_bpm(key, scale_notes, bpm))
+        .filter(|lead| lead.len() == ideal_lead.len())
+        .take(1000)
+        .collect::<Vec<_>>()
 }
 
 #[inline]

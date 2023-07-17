@@ -82,11 +82,11 @@ impl NoteData {
     /// with the given start and the velocity of the note
 
     #[inline]
-    pub fn into_on_midi_event(self, start: DeltaTime) -> Message {
+    pub fn into_on_midi_event(self, start: DeltaTime, channel: u8) -> Message {
         Message::MidiEvent {
             delta_time: start,
             event: MidiEvent::NoteOn {
-                ch: 0,
+                ch: channel,
                 note: self.note.midi(),
                 velocity: self.velocity,
             },
@@ -97,13 +97,13 @@ impl NoteData {
     /// with the given start and the velocity of the note
 
     #[inline]
-    pub fn into_off_midi_event(self, end: DeltaTime) -> Message {
+    pub fn into_off_midi_event(self, end: DeltaTime, channel: u8) -> Message {
         Message::MidiEvent {
             delta_time: end,
-            event: MidiEvent::NoteOff {
-                ch: 0,
+            event: MidiEvent::NoteOn {
+                ch: channel,
                 note: self.note.midi(),
-                velocity: self.velocity,
+                velocity: 0,
             },
         }
     }
@@ -112,10 +112,15 @@ impl NoteData {
     /// from the note with the given start and the velocity of the note
 
     #[inline]
-    pub fn into_on_off_midi_events(self, start: DeltaTime, end: DeltaTime) -> (Message, Message) {
+    pub fn into_on_off_midi_events(
+        self,
+        start: DeltaTime,
+        end: DeltaTime,
+        channel: u8,
+    ) -> (Message, Message) {
         (
-            self.into_on_midi_event(start),
-            self.into_off_midi_event(end),
+            self.into_on_midi_event(start, channel),
+            self.into_off_midi_event(end, channel),
         )
     }
 

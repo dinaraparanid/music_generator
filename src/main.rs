@@ -9,14 +9,14 @@ use music_generator::{
     genetic::generate_lead_with_genetic_algorithm,
     midi::{
         bpm::BPM,
-        generator::{composer::*, generator::generate_key},
+        generator::{
+            composer::*,
+            generator::{generate_bpm, generate_key},
+        },
     },
     notes::note::Note,
 };
 
-use futures::future::join_all;
-use music_generator::midi::generator::generator::generate_bpm;
-use rand::Rng;
 use rust_music_theory::{note::Notes, scale::*};
 use std::path::Path;
 
@@ -53,18 +53,17 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("SCALE NOTES: {:?}\n", scale_notes);
 
     let desired_fitness = 0.9;
-    let mutation_rate = 0.25;
+    let mutation_rate = 0.2;
     let bpm = generate_bpm();
 
-    let combined_leads_num = 2;
-
-    let generated_lead = join_all((0..combined_leads_num).map(|_| {
-        generate_lead_with_genetic_algorithm(key, bpm, &scale_notes, desired_fitness, mutation_rate)
-    }))
-    .await
-    .into_iter()
-    .flatten()
-    .collect::<Vec<_>>();
+    let generated_lead = generate_lead_with_genetic_algorithm(
+        key,
+        bpm,
+        &scale_notes,
+        desired_fitness,
+        mutation_rate,
+    )
+    .await;
 
     println!("BPM: {}", bpm);
     println!("LEAD: {:?}", generated_lead);
@@ -72,13 +71,29 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Generating harmony from lead
     // Converting both to MIDI messages
 
-    let (lead_midi_messages, harmony_midi_messages) = compose_from_generated(
+    let (lead_midi_messages, harmony_midi_messages) = compose_lead_harmony_from_generated(
         key,
+        bpm,
         generated_lead,
         &scale_notes,
         compose_note,
         compose_chord,
     );
+
+    let lead2_midi_messages = lead_midi_messages
+        .iter()
+        .map(|m| change_channel(m, 2))
+        .collect::<Vec<_>>();
+
+    let harmony2_midi_messages = harmony_midi_messages
+        .iter()
+        .map(|m| change_channel(m, 3))
+        .collect::<Vec<_>>();
+
+    let harmony3_midi_messages = harmony_midi_messages
+        .iter()
+        .map(|m| change_channel(m, 4))
+        .collect::<Vec<_>>();
 
     let tempo = bpm.get_tempo();
 
@@ -96,26 +111,70 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let track_change_msg = Message::TrackChange;
 
-    let lead_instrument_msg = Message::MidiEvent {
+    let lead1_instrument_msg = Message::MidiEvent {
         delta_time: 0,
-        event: MidiEvent::ProgramChange { ch: 0, program: 5 },
+        event: MidiEvent::ProgramChange { ch: 0, program: 67 }, // 5, 32, 48, 63, 85
+    };
+
+    let lead2_instrument_msg = Message::MidiEvent {
+        delta_time: 0,
+        event: MidiEvent::ProgramChange { ch: 2, program: 88 }, // 67, 88, 58, 60, 52, 79, 61, 48, 5, 87, 27, 33
+    };
+
+    let harmony1_instrument_msg = Message::MidiEvent {
+        delta_time: 0,
+        event: MidiEvent::ProgramChange { ch: 1, program: 3 },
+    };
+
+    let harmony2_instrument_msg = Message::MidiEvent {
+        delta_time: 0,
+        event: MidiEvent::ProgramChange { ch: 3, program: 28 },
+    };
+
+    let harmony3_instrument_msg = Message::MidiEvent {
+        delta_time: 0,
+        event: MidiEvent::ProgramChange { ch: 4, program: 18 },
     };
 
     // Initialise MIDI file with tempo and instrument
 
     midi_writer.push(&tempo_msg);
-    midi_writer.push(&lead_instrument_msg);
     midi_writer.push(&end_of_track_msg);
 
     // Pushes lead messages to the event holder
     midi_writer.push(&track_change_msg);
+    midi_writer.push(&lead1_instrument_msg);
     lead_midi_messages.iter().for_each(|m| midi_writer.push(m));
     midi_writer.push(&end_of_track_msg);
 
     midi_writer.push(&track_change_msg);
+    midi_writer.push(&lead2_instrument_msg);
+    lead2_midi_messages.iter().for_each(|m| midi_writer.push(m));
+    midi_writer.push(&end_of_track_msg);
 
     // Pushes harmony messages to the event holder
+    midi_writer.push(&track_change_msg);
+    midi_writer.push(&harmony1_instrument_msg);
+
     harmony_midi_messages
+        .iter()
+        .for_each(|m| midi_writer.push(m));
+
+    midi_writer.push(&end_of_track_msg);
+
+    midi_writer.push(&track_change_msg);
+    midi_writer.push(&harmony2_instrument_msg);
+
+    harmony2_midi_messages
+        .iter()
+        .for_each(|m| midi_writer.push(m));
+
+    midi_writer.push(&end_of_track_msg);
+
+    midi_writer.push(&track_change_msg);
+    midi_writer.push(&harmony3_instrument_msg);
+
+    harmony3_midi_messages
         .iter()
         .for_each(|m| midi_writer.push(m));
 

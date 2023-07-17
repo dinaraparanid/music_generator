@@ -1,12 +1,15 @@
 use crate::{
-    midi::generator::{
-        generator::{generate_harmony_from_lead, randomize_lead},
-        randomize_with_pi,
+    midi::{
+        bpm::BPM,
+        generator::{
+            generator::{generate_harmony_from_lead, randomize_lead},
+            randomize_with_pi,
+        },
     },
     notes::{note::Note, note_data::*, ChordData},
 };
 
-use ghakuf::messages::Message;
+use ghakuf::messages::{Message, MidiEvent};
 use rust_music_theory::note::PitchClass;
 
 /// Constructs vector of ON and OFF MIDI events.
@@ -17,8 +20,8 @@ use rust_music_theory::note::PitchClass;
 #[inline]
 pub fn compose_note(note: NoteData) -> Vec<Message> {
     vec![
-        note.into_on_midi_event(note.get_delay()),
-        note.into_off_midi_event(note.get_length()),
+        note.into_on_midi_event(note.get_delay(), 0),
+        note.into_off_midi_event(note.get_length(), 0),
     ]
 }
 
@@ -32,7 +35,7 @@ pub fn compose_chord(mut chord: ChordData) -> Vec<Message> {
 
     let mut result = chord
         .iter()
-        .map(|nd| nd.into_on_midi_event(nd.get_delay()))
+        .map(|nd| nd.into_on_midi_event(nd.get_delay(), 1))
         .collect::<Vec<_>>();
 
     chord.sort_by_key(|nd| nd.get_delay() + nd.get_length());
@@ -48,7 +51,7 @@ pub fn compose_chord(mut chord: ChordData) -> Vec<Message> {
             })
             .map(|(time_offset, _)| time_offset)
             .zip(chord.iter())
-            .map(|(end, nd)| nd.into_off_midi_event(end)),
+            .map(|(end, nd)| nd.into_off_midi_event(end, 1)),
     );
 
     result
@@ -59,8 +62,9 @@ pub fn compose_chord(mut chord: ChordData) -> Vec<Message> {
 /// from both lead and generated harmony
 
 #[inline]
-pub fn compose_from_generated<L, H>(
+pub fn compose_lead_harmony_from_generated<L, H>(
     key: PitchClass,
+    bpm: impl BPM,
     generated_lead: Vec<NoteData>,
     scale_notes: &Vec<Note>,
     lead_composer: L,
@@ -70,16 +74,24 @@ where
     L: Fn(NoteData) -> Vec<Message>,
     H: Fn(ChordData) -> Vec<Message>,
 {
+    let bar_time = bpm.get_bar_time().as_millis() as DeltaTime;
+    let delay_between_parts = bar_time / 2;
+
     let (leads, harmonies): (Vec<Vec<Vec<Message>>>, Vec<Vec<Vec<Message>>>) = randomize_with_pi(4)
         .into_iter()
         .map(|x| x % 2)
         .map(|direction| randomize_lead(generated_lead.clone(), scale_notes, direction))
+        .map(|mut lead| {
+            let start = lead[0].clone_with_new_delay(delay_between_parts);
+            lead[0] = start;
+            lead
+        })
         .map(|lead| {
             let harmony = generate_harmony_from_lead(key, &lead, scale_notes);
             (lead, harmony)
         })
         .map(|(leads, harmonies)| {
-            let lead_msgs = leads
+            let mut lead_msgs = leads
                 .into_iter()
                 .map(|l| lead_composer(l))
                 .collect::<Vec<_>>();
@@ -94,7 +106,6 @@ where
         .unzip();
 
     let leads = leads.into_iter().flatten().flatten().collect::<Vec<_>>();
-    let leads = vec![leads.clone(); 2].into_iter().flatten().collect();
 
     let harmonies = harmonies
         .into_iter()
@@ -102,7 +113,36 @@ where
         .flatten()
         .collect::<Vec<_>>();
 
-    let harmonies = vec![harmonies.clone(); 2].into_iter().flatten().collect();
-
     (leads, harmonies)
+}
+
+#[inline]
+pub fn change_channel(midi_msg: &Message, channel: u8) -> Message {
+    match midi_msg {
+        Message::MidiEvent {
+            delta_time,
+            event: MidiEvent::NoteOn { ch, note, velocity },
+        } => Message::MidiEvent {
+            delta_time: *delta_time,
+            event: MidiEvent::NoteOn {
+                ch: channel,
+                note: *note,
+                velocity: *velocity,
+            },
+        },
+
+        Message::MidiEvent {
+            delta_time,
+            event: MidiEvent::NoteOff { ch, note, velocity },
+        } => Message::MidiEvent {
+            delta_time: *delta_time,
+            event: MidiEvent::NoteOff {
+                ch: channel,
+                note: *note,
+                velocity: *velocity,
+            },
+        },
+
+        _ => midi_msg.clone(),
+    }
 }

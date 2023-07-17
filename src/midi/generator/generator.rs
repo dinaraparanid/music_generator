@@ -40,8 +40,6 @@ pub fn generate_key() -> PitchClass {
         PitchClass::G,
         PitchClass::Gs,
         PitchClass::A,
-        PitchClass::As,
-        PitchClass::B,
     ];
 
     random_from_vec(&mut keys).unwrap()
@@ -50,7 +48,7 @@ pub fn generate_key() -> PitchClass {
 #[inline]
 pub fn generate_bpm() -> impl BPM {
     let mut rng = rand::thread_rng();
-    rng.gen_range(75..=110)
+    rng.gen_range(80..=90)
 }
 
 /// Generates number of notes in a melody.
@@ -144,7 +142,7 @@ fn take_rand_close_note(
 ) -> NoteData {
     NoteData::new(
         rand_close_note(tonic_note, scale_notes, rand::thread_rng().gen::<u32>() % 2),
-        80,
+        45,
         start_position,
         len,
         get_bar_ratio(bar_time, delay_ratio),
@@ -167,7 +165,7 @@ pub fn generate_lead_melody_with_bpm(
 ) -> Vec<NoteData> {
     let bar_time = bpm.get_bar_time().as_millis() as DeltaTime;
     let single_len = get_bar_ratio(bar_time, 4);
-    let tonic_note = generate_tonic_lead_note(key, 80, single_len, 0);
+    let tonic_note = generate_tonic_lead_note(key, 45, single_len, 0);
 
     let mut generated_lead = (4..64).step_by(4).fold(vec![tonic_note], |lead, position| {
         push_next_note_or_skip(
@@ -663,28 +661,28 @@ fn aeolian_chord_progression(key: PitchClass) -> ChordProgression {
     HashMap::from([
         (format!("{}", key), (Quality::Minor, Number::Triad)),
         (
-            format!("{}", PitchClass::from(tonic_note.up(2).unwrap())),
-            (Quality::Diminished, Number::Triad),
-        ),
-        (
-            format!("{}", PitchClass::from(tonic_note.up(3).unwrap())),
-            (Quality::Augmented, Number::Triad),
-        ),
-        (
             format!("{}", PitchClass::from(tonic_note.up(5).unwrap())),
             (Quality::Minor, Number::Triad),
         ),
         (
             format!("{}", PitchClass::from(tonic_note.up(7).unwrap())),
-            (Quality::Major, Number::Triad),
-        ),
-        (
-            format!("{}", PitchClass::from(tonic_note.up(8).unwrap())),
             (Quality::Minor, Number::Triad),
         ),
         (
-            format!("{}", PitchClass::from(tonic_note.up(11).unwrap())),
-            (Quality::Dominant, Number::Seventh),
+            format!("{}", PitchClass::from(tonic_note.up(8).unwrap())),
+            (Quality::Major, Number::Triad),
+        ),
+        (
+            format!("{}", PitchClass::from(tonic_note.up(10).unwrap())),
+            (Quality::Major, Number::Triad),
+        ),
+        (
+            format!("{}", PitchClass::from(tonic_note.up(14).unwrap())),
+            (Quality::Minor, Number::Triad),
+        ),
+        (
+            format!("{}", PitchClass::from(tonic_note.up(15).unwrap())),
+            (Quality::Diminished, Number::Triad),
         ),
     ])
 }
@@ -726,7 +724,7 @@ fn build_chord_from(
         .into_iter()
         .map(Note::from)
         .map(|nt| nt.octave_down().unwrap())
-        .map(|nt| note.clone_with_new_note(nt).clone_with_velocity(40))
+        .map(|nt| note.clone_with_new_note(nt).clone_with_velocity(35))
         .map(|note| fix_note_to_closest_scaled(note, scale_notes))
         .collect::<Vec<_>>();
 
@@ -822,7 +820,7 @@ pub fn randomize_lead(
     scale_notes: &Vec<Note>,
     direction: u32,
 ) -> Vec<NoteData> {
-    let mut diffs = (0..=3).collect::<Vec<_>>();
+    let mut diffs = (1..=2).collect::<Vec<_>>();
     let diff = random_from_vec(&mut diffs).unwrap();
 
     generated_lead

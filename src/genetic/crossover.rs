@@ -19,19 +19,19 @@ fn generate_co_points(parent1_len: usize, parent2_len: usize) -> Vec<usize> {
         .dedup()
         .take(co_points)
         .sorted()
-        .collect::<Vec<_>>()
+        .collect()
 }
 
 #[inline]
 fn perform_crossover<T: Clone>(parent1: Vec<T>, parent2: Vec<T>, co_points: Vec<usize>) -> Vec<T> {
-    let first_part = parent1
+    let beginning = parent1
         .iter()
         .take(co_points[0])
         .map(|x| x.clone())
-        .collect::<Vec<_>>();
+        .collect();
 
     let crossover = co_points.with_next().enumerate().fold(
-        first_part,
+        beginning,
         |acc, (i, (&next_co_point, &prev_co_point))| {
             extended_with_next_part(acc, &parent1, &parent2, i, next_co_point, prev_co_point)
         },

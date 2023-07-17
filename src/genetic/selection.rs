@@ -7,15 +7,7 @@ pub fn select_from_population_with_roulette<T: Clone>(
 ) -> Vec<T> {
     let mut rng = rand::thread_rng();
 
-    let fitness_sums = fitness_values
-        .into_iter()
-        .scan(0.0, |acc, x| {
-            *acc = *acc + x;
-            Some(*acc)
-        })
-        .enumerate()
-        .collect::<Vec<_>>();
-
+    let fitness_sums = fitness_sums(fitness_values);
     let total_fitness = fitness_sums.last().unwrap().1;
 
     (0..population.len())
@@ -29,4 +21,16 @@ pub fn select_from_population_with_roulette<T: Clone>(
         })
         .flatten()
         .collect()
+}
+
+#[inline]
+fn fitness_sums(fitness_values: Vec<f32>) -> Vec<(usize, f32)> {
+    fitness_values
+        .into_iter()
+        .scan(0.0, |acc, x| {
+            *acc = *acc + x;
+            Some(*acc)
+        })
+        .enumerate()
+        .collect::<Vec<_>>()
 }
