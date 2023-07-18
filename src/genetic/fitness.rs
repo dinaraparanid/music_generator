@@ -29,7 +29,6 @@ pub fn fitness(bpm: impl BPM, lead: &Vec<NoteData>, ideal_lead: &Vec<NoteData>) 
         && is_without_three_times_repetition(&lead)
         && is_distance_between_notes_not_big(&lead)
         && is_not_too_big_parts(&lead)
-        && is_no_5_big_part(&lead)
         && is_not_many_delays(&lead)
     {
         fitness
@@ -40,7 +39,7 @@ pub fn fitness(bpm: impl BPM, lead: &Vec<NoteData>, ideal_lead: &Vec<NoteData>) 
 
 #[inline]
 fn is_ok_len(lead: &Vec<NoteData>) -> bool {
-    lead.len() <= 8
+    lead.len() <= 10
 }
 
 #[inline]
@@ -80,17 +79,6 @@ fn is_not_many_delays(lead: &Vec<NoteData>) -> bool {
         .filter(|d| *d != 0)
         .count()
         < 4
-}
-
-#[inline]
-fn is_no_5_big_part(lead: &Vec<NoteData>) -> bool {
-    lead.iter()
-        .skip(1)
-        .map(|x| x.get_delay())
-        .collect::<Vec<_>>()
-        .windows(4)
-        .find(|&arr| arr == [0, 0, 0, 0])
-        .is_none()
 }
 
 #[inline]

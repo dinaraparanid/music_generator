@@ -52,7 +52,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     println!("SCALE NOTES: {:?}\n", scale_notes);
 
-    let desired_fitness = 0.75;
+    let desired_fitness = 0.85;
     let mutation_rate = 0.2;
     let bpm = generate_bpm();
 
