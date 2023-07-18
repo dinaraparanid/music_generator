@@ -36,7 +36,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let scale_notes = (2..=5)
         .map(|octave| {
             Scale::new(
-                ScaleType::MelodicMinor,
+                ScaleType::Diatonic,
                 key,
                 octave,
                 Some(Mode::Aeolian),

@@ -43,7 +43,7 @@ pub fn generate_key() -> PitchClass {
 #[inline]
 pub fn generate_bpm() -> impl BPM {
     let mut rng = rand::thread_rng();
-    rng.gen_range(85..=115)
+    rng.gen_range(75..=110)
 }
 
 /// Generates number of notes in a melody.
