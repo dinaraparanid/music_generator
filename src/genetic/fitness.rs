@@ -40,7 +40,7 @@ pub fn fitness(bpm: impl BPM, lead: &Vec<NoteData>, ideal_lead: &Vec<NoteData>) 
 
 #[inline]
 fn is_ok_len(lead: &Vec<NoteData>) -> bool {
-    lead.len() <= 12
+    lead.len() <= 8
 }
 
 #[inline]

@@ -43,7 +43,7 @@ pub fn generate_key() -> PitchClass {
 #[inline]
 pub fn generate_bpm() -> impl BPM {
     let mut rng = rand::thread_rng();
-    rng.gen_range(90..=110)
+    rng.gen_range(60..=90)
 }
 
 /// Generates number of notes in a melody.
@@ -162,7 +162,7 @@ pub fn generate_lead_melody_with_bpm(
     let single_len = get_bar_ratio(bar_time, 4);
     let tonic_note = generate_tonic_lead_note(key, 45, single_len, 0);
 
-    let mut generated_lead = (4..64).step_by(4).fold(vec![tonic_note], |lead, position| {
+    let mut generated_lead = (4..32).step_by(4).fold(vec![tonic_note], |lead, position| {
         push_next_note_or_skip(
             bar_time,
             single_len,

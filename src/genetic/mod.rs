@@ -106,7 +106,6 @@ fn initial_population(
 ) -> LeadPopulation {
     (0..)
         .map(|_| generate_lead_melody_with_bpm(key, scale_notes, bpm))
-        .filter(|lead| lead.len() == ideal_lead.len())
         .take(1000)
         .collect::<Vec<_>>()
 }
