@@ -43,7 +43,7 @@ pub fn generate_key() -> PitchClass {
 #[inline]
 pub fn generate_bpm() -> impl BPM {
     let mut rng = rand::thread_rng();
-    rng.gen_range(60..=90)
+    rng.gen_range(80..=110)
 }
 
 /// Generates number of notes in a melody.
@@ -816,7 +816,7 @@ pub fn randomize_lead(
     direction: u32,
 ) -> Vec<NoteData> {
     let mut diffs = (1..=3).collect::<Vec<_>>();
-    let diff = random_from_vec(&mut diffs).unwrap();
+    let diff = 0; //random_from_vec(&mut diffs).unwrap();
 
     generated_lead
         .into_iter()
