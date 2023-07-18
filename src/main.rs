@@ -52,7 +52,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     println!("SCALE NOTES: {:?}\n", scale_notes);
 
-    let desired_fitness = 0.9;
+    let desired_fitness = 0.75;
     let mutation_rate = 0.2;
     let bpm = generate_bpm();
 
@@ -111,19 +111,21 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let track_change_msg = Message::TrackChange;
 
+    // 1, 53, 29, 120, 48, 117, 109,
+
     let lead1_instrument_msg = Message::MidiEvent {
         delta_time: 0,
-        event: MidiEvent::ProgramChange { ch: 0, program: 67 }, // 5, 32, 48, 63, 85
+        event: MidiEvent::ProgramChange { ch: 0, program: 1 }, // 5, 32, 48, 63, 85
     };
 
     let lead2_instrument_msg = Message::MidiEvent {
         delta_time: 0,
-        event: MidiEvent::ProgramChange { ch: 2, program: 88 }, // 67, 88, 58, 60, 52, 79, 61, 48, 5, 87, 27, 33
+        event: MidiEvent::ProgramChange { ch: 2, program: 5 }, // 67, 88, 58, 60, 52, 79, 61, 48, 5, 87, 27, 33
     };
 
     let harmony1_instrument_msg = Message::MidiEvent {
         delta_time: 0,
-        event: MidiEvent::ProgramChange { ch: 1, program: 3 },
+        event: MidiEvent::ProgramChange { ch: 1, program: 5 },
     };
 
     let harmony2_instrument_msg = Message::MidiEvent {
@@ -133,7 +135,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let harmony3_instrument_msg = Message::MidiEvent {
         delta_time: 0,
-        event: MidiEvent::ProgramChange { ch: 4, program: 18 },
+        event: MidiEvent::ProgramChange { ch: 4, program: 33 },
     };
 
     // Initialise MIDI file with tempo and instrument

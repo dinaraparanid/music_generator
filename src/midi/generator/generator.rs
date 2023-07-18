@@ -30,16 +30,11 @@ const NOTE_TAKE: u32 = 0;
 #[inline]
 pub fn generate_key() -> PitchClass {
     let mut keys = vec![
-        PitchClass::C,
-        PitchClass::Cs,
-        PitchClass::D,
-        PitchClass::Ds,
+        PitchClass::D, // +
         PitchClass::E,
         PitchClass::F,
-        PitchClass::Fs,
         PitchClass::G,
-        PitchClass::Gs,
-        PitchClass::A,
+        PitchClass::A, // +
     ];
 
     random_from_vec(&mut keys).unwrap()
@@ -48,7 +43,7 @@ pub fn generate_key() -> PitchClass {
 #[inline]
 pub fn generate_bpm() -> impl BPM {
     let mut rng = rand::thread_rng();
-    rng.gen_range(80..=90)
+    rng.gen_range(90..=110)
 }
 
 /// Generates number of notes in a melody.
@@ -208,7 +203,7 @@ fn push_next_note_or_skip(
     };
 
     match cur_delay {
-        16 => push_next(),
+        12 => push_next(),
 
         _ => {
             if rng.gen_bool(0.25) {
@@ -687,11 +682,11 @@ fn aeolian_chord_progression(key: PitchClass) -> ChordProgression {
     ])
 }
 
-/// With probability 1 : 4 picks the note or extends chords
+/// With probability 1 : 2 picks the note or extends chords
 
 #[inline]
 fn new_chord_note_or_extend(mut acc: Vec<NoteData>, note: &NoteData) -> Vec<NoteData> {
-    match rand::thread_rng().gen::<u32>() % 5 {
+    match rand::thread_rng().gen::<u32>() % 3 {
         NOTE_TAKE => acc.push(*note),
 
         _ => {
@@ -820,7 +815,7 @@ pub fn randomize_lead(
     scale_notes: &Vec<Note>,
     direction: u32,
 ) -> Vec<NoteData> {
-    let mut diffs = (1..=2).collect::<Vec<_>>();
+    let mut diffs = (1..=3).collect::<Vec<_>>();
     let diff = random_from_vec(&mut diffs).unwrap();
 
     generated_lead
