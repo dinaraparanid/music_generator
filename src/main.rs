@@ -14,9 +14,10 @@ use music_generator::{
             generator::{generate_bpm, generate_key},
         },
     },
-    notes::note::Note,
+    notes::{note::Note, note_data::DeltaTime},
 };
 
+use futures::future::join_all;
 use rust_music_theory::{note::Notes, scale::*};
 use std::path::Path;
 
@@ -56,14 +57,21 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mutation_rate = 0.2;
     let bpm = generate_bpm();
 
-    let generated_lead = generate_lead_with_genetic_algorithm(
-        key,
-        bpm,
-        &scale_notes,
-        desired_fitness,
-        mutation_rate,
-    )
-    .await;
+    let bar_time = bpm.get_bar_time().as_millis() as DeltaTime;
+    let delay_between_parts = bar_time / 2;
+
+    let generated_lead = join_all((0..2).map(|_| {
+        generate_lead_with_genetic_algorithm(key, bpm, &scale_notes, desired_fitness, mutation_rate)
+    }))
+    .await
+    .into_iter()
+    .map(|mut lead| {
+        let start = lead[0].clone_with_new_delay(delay_between_parts);
+        lead[0] = start;
+        lead
+    })
+    .flatten()
+    .collect();
 
     println!("BPM: {}", bpm);
     println!("LEAD: {:?}", generated_lead);

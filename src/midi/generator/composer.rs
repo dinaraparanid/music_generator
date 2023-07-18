@@ -75,7 +75,7 @@ where
     H: Fn(ChordData) -> Vec<Message>,
 {
     let bar_time = bpm.get_bar_time().as_millis() as DeltaTime;
-    let delay_between_parts = bar_time / 4;
+    let delay_between_parts = bar_time / 2;
 
     let (leads, harmonies): (Vec<Vec<Vec<Message>>>, Vec<Vec<Vec<Message>>>) = randomize_with_pi(4)
         .into_iter()

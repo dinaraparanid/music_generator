@@ -43,7 +43,7 @@ pub fn generate_key() -> PitchClass {
 #[inline]
 pub fn generate_bpm() -> impl BPM {
     let mut rng = rand::thread_rng();
-    rng.gen_range(75..=90)
+    rng.gen_range(85..=115)
 }
 
 /// Generates number of notes in a melody.
@@ -692,10 +692,8 @@ fn new_chord_note_or_extend(mut acc: Vec<NoteData>, note: &NoteData) -> Vec<Note
         _ => {
             // Extend current chord from the current note
             let last_note = *acc.last().unwrap();
-
-            *acc.last_mut().unwrap() = last_note.clone_with_new_length(
-                last_note.get_length() + note.get_delay() + note.get_length(),
-            )
+            let new_len = last_note.get_length() + note.get_delay() + note.get_length();
+            *acc.last_mut().unwrap() = last_note.clone_with_new_length(new_len)
         }
     }
 
