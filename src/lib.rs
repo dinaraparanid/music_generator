@@ -4,6 +4,7 @@ use std::{
 };
 
 pub mod genetic;
+pub mod melody_type;
 pub mod midi;
 pub mod notes;
 

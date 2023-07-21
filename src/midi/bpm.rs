@@ -8,12 +8,12 @@ pub trait BPM: Clone + Copy + Eq + Ord + Sized + Display {
     fn as_u64(&self) -> u64;
 
     #[inline]
-    fn get_bar_time(&self) -> Duration {
-        Duration::from_millis(self.get_tempo() / 250)
+    fn bar_time(&self) -> Duration {
+        Duration::from_millis(self.tempo() / 250)
     }
 
     #[inline]
-    fn get_tempo(&self) -> u64 {
+    fn tempo(&self) -> u64 {
         60_000_000 / self.as_u64()
     }
 }

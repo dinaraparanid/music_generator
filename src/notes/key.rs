@@ -37,6 +37,6 @@ impl From<NoteData> for PitchClass {
 
     #[inline]
     fn from(value: NoteData) -> Self {
-        Self::from(value.get_note())
+        Self::from(value.note())
     }
 }

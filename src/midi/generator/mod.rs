@@ -61,11 +61,11 @@ fn randomize_with_pi(len: usize) -> Vec<u32> {
 }
 
 /// Gets time for a given ratio in terms of bar's time.
-/// Note that bar is divided into 64 parts
+/// Note that bar is divided into 16 parts
 
 #[inline]
 fn get_bar_ratio(bar_time: DeltaTime, ratio: u32) -> DeltaTime {
-    bar_time * ratio / 64
+    bar_time * ratio / 16
 }
 
 trait FixedToTempoNoteData {
@@ -79,10 +79,10 @@ impl FixedToTempoNoteData for NoteData {
         self.clone_with_new_length(
             lengths
                 .iter()
-                .map(|&len| (len, (len as i32 - self.get_length() as i32).abs()))
+                .map(|&len| (len, (len as i32 - self.length() as i32).abs()))
                 .min_by_key(|(_, dif)| *dif)
                 .map(|(len, _)| len + randomize_with_pi(1)[0])
-                .unwrap_or(self.get_length()),
+                .unwrap_or(self.length()),
         )
     }
 
@@ -91,10 +91,10 @@ impl FixedToTempoNoteData for NoteData {
         self.clone_with_new_delay(
             delays
                 .iter()
-                .map(|&delay| (delay, (delay as i32 - self.get_delay() as i32).abs()))
+                .map(|&delay| (delay, (delay as i32 - self.delay() as i32).abs()))
                 .min_by_key(|(_, dif)| *dif)
                 .map(|(delay, _)| delay + randomize_with_pi(1)[0])
-                .unwrap_or(self.get_delay()),
+                .unwrap_or(self.delay()),
         )
     }
 }
@@ -105,7 +105,7 @@ impl FixedToTempoNoteData for NoteData {
 
 #[inline]
 fn fixed_to_tempo(note: NoteData, lengths: &Vec<DeltaTime>, delays: &Vec<DeltaTime>) -> NoteData {
-    let fixed_velocity = std::cmp::min(60 + note.get_velocity(), 100);
+    let fixed_velocity = std::cmp::min(60 + note.velocity(), 100);
 
     note.with_fixed_to_tempo_length(lengths)
         .with_fixed_to_tempo_delay(delays)

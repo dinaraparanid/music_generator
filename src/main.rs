@@ -6,104 +6,71 @@ use ghakuf::{
 };
 
 use music_generator::{
-    genetic::generate_lead_with_genetic_algorithm,
     midi::{
         bpm::BPM,
-        generator::{
-            composer::*,
-            generator::{generate_bpm, generate_key},
-        },
+        generator::{composer::*, generator::generate_bpm},
+        key_list, melody_types, mode_list, scale_list,
     },
-    notes::{note::Note, note_data::DeltaTime},
+    notes::note::Note,
 };
 
-use futures::future::join_all;
 use rust_music_theory::{note::Notes, scale::*};
-use std::path::Path;
+use std::{fmt::Debug, path::Path};
+
+#[inline]
+fn select_from_list<T: Clone + Debug>(inp_msg: &str, list: Vec<T>) -> T {
+    println!("{inp_msg}");
+
+    list.iter()
+        .enumerate()
+        .for_each(|(ind, v)| println!("{}. {:?}", ind + 1, v.clone()));
+
+    let mut input = String::new();
+
+    std::io::stdin()
+        .read_line(&mut input)
+        .expect("Unable to read string");
+
+    let index = input.trim().parse::<usize>().expect("Wrong index input");
+    list.get(index - 1).expect("Wrong index").clone()
+}
 
 #[monoio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut midi_writer = Writer::new();
     midi_writer.running_status(true);
 
-    let key = generate_key();
-    println!("KEY: {}\n", key);
+    let key = select_from_list("Select key's number:", key_list());
+    let scale = select_from_list("Select scale's number:", scale_list());
+    let mode = select_from_list("Select mode's number:", mode_list());
+    let melody_type = select_from_list("Select melody type's number:", melody_types());
 
-    // Picking all notes in octaves from 2 to 5.
+    // Picking all notes in 5 octave.
     // This notes will help to construct
     // both lead melody and chords in harmony
 
-    let scale_notes = (2..=5)
+    let scale_notes = (4..=5)
         .map(|octave| {
-            Scale::new(
-                ScaleType::Diatonic,
-                key,
-                octave,
-                Some(Mode::Aeolian),
-                Direction::Ascending,
-            )
-            .unwrap()
-            .notes()
-            .into_iter()
-            .filter(|note| note.octave < 6)
-            .map(Note::from)
+            Scale::new(scale, key, octave, Some(mode), Direction::Ascending)
+                .unwrap()
+                .notes()
+                .into_iter()
+                .map(Note::from)
         })
         .flatten()
         .collect::<Vec<_>>();
 
     println!("SCALE NOTES: {:?}\n", scale_notes);
 
-    let desired_fitness = 0.9;
-    let mutation_rate = 0.25;
     let bpm = generate_bpm();
-
-    let bar_time = bpm.get_bar_time().as_millis() as DeltaTime;
-    let delay_between_parts = bar_time / 2;
-
-    let generated_lead = join_all((0..2).map(|_| {
-        generate_lead_with_genetic_algorithm(key, bpm, &scale_notes, desired_fitness, mutation_rate)
-    }))
-    .await
-    .into_iter()
-    .map(|mut lead| {
-        let start = lead[0].clone_with_new_delay(delay_between_parts);
-        lead[0] = start;
-        lead
-    })
-    .flatten()
-    .collect();
+    let generated_lead = melody_type.generate_synthwave_melody(key, &scale_notes, bpm);
 
     println!("BPM: {}", bpm);
     println!("LEAD: {:?}", generated_lead);
 
-    // Generating harmony from lead
-    // Converting both to MIDI messages
+    let lead_midi_messages = compose_lead_from_generated(generated_lead, compose_note);
 
-    let (lead_midi_messages, harmony_midi_messages) = compose_lead_harmony_from_generated(
-        key,
-        bpm,
-        generated_lead,
-        &scale_notes,
-        compose_note,
-        compose_chord,
-    );
-
-    let lead2_midi_messages = lead_midi_messages
-        .iter()
-        .map(|m| change_channel(m, 2))
-        .collect::<Vec<_>>();
-
-    let harmony2_midi_messages = harmony_midi_messages
-        .iter()
-        .map(|m| change_channel(m, 3))
-        .collect::<Vec<_>>();
-
-    let harmony3_midi_messages = harmony_midi_messages
-        .iter()
-        .map(|m| change_channel(m, 4))
-        .collect::<Vec<_>>();
-
-    let tempo = bpm.get_tempo();
+    let tempo = bpm.tempo();
 
     let tempo_msg = Message::MetaEvent {
         delta_time: 0,
@@ -120,30 +87,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let track_change_msg = Message::TrackChange;
 
     // 1, 53, 29, 120, 48, 117, 109,
+    // 67, 88, 58, 60, 52, 79, 61, 48, 5, 87, 27, 33
+    // 5, 32, 48, 63, 85
 
     let lead1_instrument_msg = Message::MidiEvent {
         delta_time: 0,
-        event: MidiEvent::ProgramChange { ch: 0, program: 1 }, // 5, 32, 48, 63, 85
-    };
-
-    let lead2_instrument_msg = Message::MidiEvent {
-        delta_time: 0,
-        event: MidiEvent::ProgramChange { ch: 2, program: 5 }, // 67, 88, 58, 60, 52, 79, 61, 48, 5, 87, 27, 33
-    };
-
-    let harmony1_instrument_msg = Message::MidiEvent {
-        delta_time: 0,
-        event: MidiEvent::ProgramChange { ch: 1, program: 5 },
-    };
-
-    let harmony2_instrument_msg = Message::MidiEvent {
-        delta_time: 0,
-        event: MidiEvent::ProgramChange { ch: 3, program: 28 },
-    };
-
-    let harmony3_instrument_msg = Message::MidiEvent {
-        delta_time: 0,
-        event: MidiEvent::ProgramChange { ch: 4, program: 33 },
+        event: MidiEvent::ProgramChange { ch: 0, program: 1 },
     };
 
     // Initialise MIDI file with tempo and instrument
@@ -155,39 +104,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     midi_writer.push(&track_change_msg);
     midi_writer.push(&lead1_instrument_msg);
     lead_midi_messages.iter().for_each(|m| midi_writer.push(m));
-    midi_writer.push(&end_of_track_msg);
-
-    midi_writer.push(&track_change_msg);
-    midi_writer.push(&lead2_instrument_msg);
-    lead2_midi_messages.iter().for_each(|m| midi_writer.push(m));
-    midi_writer.push(&end_of_track_msg);
-
-    // Pushes harmony messages to the event holder
-    midi_writer.push(&track_change_msg);
-    midi_writer.push(&harmony1_instrument_msg);
-
-    harmony_midi_messages
-        .iter()
-        .for_each(|m| midi_writer.push(m));
-
-    midi_writer.push(&end_of_track_msg);
-
-    midi_writer.push(&track_change_msg);
-    midi_writer.push(&harmony2_instrument_msg);
-
-    harmony2_midi_messages
-        .iter()
-        .for_each(|m| midi_writer.push(m));
-
-    midi_writer.push(&end_of_track_msg);
-
-    midi_writer.push(&track_change_msg);
-    midi_writer.push(&harmony3_instrument_msg);
-
-    harmony3_midi_messages
-        .iter()
-        .for_each(|m| midi_writer.push(m));
-
     midi_writer.push(&end_of_track_msg);
 
     std::fs::create_dir("./generated").unwrap_or_default();

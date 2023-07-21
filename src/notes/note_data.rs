@@ -44,14 +44,14 @@ impl NoteData {
     /// Gets note (or pitch) of the data
 
     #[inline]
-    pub fn get_note(&self) -> Note {
+    pub fn note(&self) -> Note {
         self.note
     }
 
     /// Gets velocity of the note
 
     #[inline]
-    pub fn get_velocity(&self) -> u8 {
+    pub fn velocity(&self) -> u8 {
         self.velocity
     }
 
@@ -60,21 +60,21 @@ impl NoteData {
     /// calculated in [DeltaTime])
 
     #[inline]
-    pub fn get_start(&self) -> DeltaTime {
+    pub fn start(&self) -> DeltaTime {
         self.start
     }
 
     /// Gets length of the note
 
     #[inline]
-    pub fn get_length(&self) -> DeltaTime {
+    pub fn length(&self) -> DeltaTime {
         self.length
     }
 
     /// Gets the delay (pause between notes) of the note
 
     #[inline]
-    pub fn get_delay(&self) -> DeltaTime {
+    pub fn delay(&self) -> DeltaTime {
         self.delay
     }
 

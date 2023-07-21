@@ -84,7 +84,7 @@ fn notes_from_tonic(
     is_tonic_first: bool,
     is_up: bool,
 ) -> Option<Vec<NoteData>> {
-    let second_note = get_closest_note(tonic_note.get_note(), scale_notes, is_up)?;
+    let second_note = get_closest_note(tonic_note.note(), scale_notes, is_up)?;
     let second_note = tonic_note.clone_with_new_note(second_note);
 
     if !is_tonic_required {

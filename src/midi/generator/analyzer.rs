@@ -111,7 +111,7 @@ where
 #[inline]
 #[deprecated]
 pub fn analyze_notes(midi_data: &Vec<Vec<NoteData>>) -> AnalyzedNotes {
-    analyze_data(midi_data, NoteData::get_note)
+    analyze_data(midi_data, NoteData::note)
 }
 
 /// Constructs Markov chains based probabilities map
@@ -126,5 +126,5 @@ pub fn analyze_notes(midi_data: &Vec<Vec<NoteData>>) -> AnalyzedNotes {
 #[inline]
 #[deprecated]
 pub fn analyze_delays(midi_data: &Vec<Vec<NoteData>>) -> AnalyzedDelays {
-    analyze_data(midi_data, NoteData::get_delay)
+    analyze_data(midi_data, NoteData::delay)
 }
