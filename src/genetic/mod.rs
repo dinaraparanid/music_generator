@@ -3,11 +3,8 @@ use crate::{
         crossover::crossover, fitness::fitness, mutation::mutate,
         selection::select_from_population_with_roulette,
     },
-    midi::{
-        bpm::BPM,
-        generator::{generator::generate_lead_melody_with_bpm_and_len, random_from_vec},
-        parser::midi_file_manager::extract_notes,
-    },
+    melody_type::SynthwaveMelodyType,
+    midi::{bpm::BPM, generator::random_from_vec, parser::midi_file_manager::extract_notes},
     notes::{note::Note, note_data::NoteData},
 };
 
@@ -28,7 +25,7 @@ pub async fn generate_lead_with_genetic_algorithm(
     key: PitchClass,
     bpm: impl BPM,
     scale_notes: &Vec<Note>,
-    melody_len: usize,
+    melody_type: SynthwaveMelodyType,
     desired_fitness: f32,
     mutation_rate: f32,
 ) -> Vec<NoteData> {
@@ -37,7 +34,7 @@ pub async fn generate_lead_with_genetic_algorithm(
             key,
             bpm,
             scale_notes,
-            melody_len,
+            melody_type,
             desired_fitness,
             mutation_rate,
         )
@@ -54,14 +51,14 @@ async fn try_generate_lead_with_genetic_algorithm(
     key: PitchClass,
     bpm: impl BPM,
     scale_notes: &Vec<Note>,
-    melody_len: usize,
+    melody_type: SynthwaveMelodyType,
     desired_fitness: f32,
     mutation_rate: f32,
 ) -> Option<Vec<NoteData>> {
     let mut ideal_leads = extract_notes().await.ok()?;
     let (path, ideal_lead) = random_from_vec(&mut ideal_leads)?;
 
-    let population = initial_population(key, bpm, scale_notes, melody_len);
+    let population = initial_population(key, bpm, scale_notes, melody_type);
     let fitness_values = next_fitness(bpm, &population, &ideal_lead);
     let max_fit = max_fitness(&fitness_values);
     let population_size = population.len();
@@ -105,10 +102,10 @@ fn initial_population(
     key: PitchClass,
     bpm: impl BPM,
     scale_notes: &Vec<Note>,
-    melody_len: usize,
+    melody_type: SynthwaveMelodyType,
 ) -> LeadPopulation {
     (0..)
-        .map(|_| generate_lead_melody_with_bpm_and_len(key, scale_notes, bpm, melody_len))
+        .map(|_| melody_type.generate_synthwave_melody(key, scale_notes, bpm))
         .take(1000)
         .collect::<Vec<_>>()
 }

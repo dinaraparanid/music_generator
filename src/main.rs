@@ -75,7 +75,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let tempo_msg = Message::MetaEvent {
         delta_time: 0,
         event: MetaEvent::SetTempo,
-        data: [(tempo >> 16) as u8, (tempo >> 8) as u8, tempo as u8].to_vec(),
+        data: vec![(tempo >> 16) as u8, (tempo >> 8) as u8, tempo as u8],
     };
 
     let end_of_track_msg = Message::MetaEvent {
@@ -90,9 +90,27 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // 67, 88, 58, 60, 52, 79, 61, 48, 5, 87, 27, 33
     // 5, 32, 48, 63, 85
 
-    let lead1_instrument_msg = Message::MidiEvent {
+    let lead_instrument_msg = Message::MidiEvent {
         delta_time: 0,
-        event: MidiEvent::ProgramChange { ch: 0, program: 1 },
+        event: MidiEvent::ProgramChange { ch: 0, program: 62 },
+    };
+
+    let reverb_effect_msg = Message::MidiEvent {
+        delta_time: 0,
+        event: MidiEvent::ControlChange {
+            ch: 0,
+            control: 91,
+            data: 110,
+        },
+    };
+
+    let chorus_effect_msg = Message::MidiEvent {
+        delta_time: 0,
+        event: MidiEvent::ControlChange {
+            ch: 0,
+            control: 93,
+            data: 90,
+        },
     };
 
     // Initialise MIDI file with tempo and instrument
@@ -102,7 +120,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Pushes lead messages to the event holder
     midi_writer.push(&track_change_msg);
-    midi_writer.push(&lead1_instrument_msg);
+    midi_writer.push(&lead_instrument_msg);
+    midi_writer.push(&reverb_effect_msg);
+    midi_writer.push(&chorus_effect_msg);
     lead_midi_messages.iter().for_each(|m| midi_writer.push(m));
     midi_writer.push(&end_of_track_msg);
 

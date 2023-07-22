@@ -7,7 +7,7 @@ pub fn fitness(bpm: impl BPM, lead: &Vec<NoteData>, ideal_lead: &Vec<NoteData>) 
     let note_dif_match_ratio = note_match_ratio / 26.0;
 
     let bar_time = bpm.bar_time().as_millis() as u32;
-    let single_note_len = bar_time / 16;
+    let single_note_len = (bar_time as f64 / 16.0).round() as u32;
 
     let fitness = lead.with_next().zip(ideal_lead.with_next()).fold(
         note_match_ratio,
@@ -25,8 +25,7 @@ pub fn fitness(bpm: impl BPM, lead: &Vec<NoteData>, ideal_lead: &Vec<NoteData>) 
         },
     );
 
-    if is_ok_len(&lead)
-        && is_without_three_times_repetition(&lead)
+    if is_without_three_times_repetition(&lead)
         && is_distance_between_notes_not_big(&lead)
         && is_not_too_big_parts(&lead)
         && is_not_many_delays(&lead)
@@ -35,11 +34,6 @@ pub fn fitness(bpm: impl BPM, lead: &Vec<NoteData>, ideal_lead: &Vec<NoteData>) 
     } else {
         0.0
     }
-}
-
-#[inline]
-fn is_ok_len(lead: &Vec<NoteData>) -> bool {
-    lead.len() <= 10
 }
 
 #[inline]

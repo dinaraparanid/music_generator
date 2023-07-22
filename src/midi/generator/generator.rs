@@ -17,15 +17,15 @@ const DIRECTION_STAY: u32 = 2;
 #[inline]
 pub fn generate_bpm() -> impl BPM {
     let mut rng = rand::thread_rng();
-    rng.gen_range(75..=110)
+    rng.gen_range(90..=120)
 }
 
 /// Generates number of notes in a synthwave melody.
-/// Number is in the set of 3..=5
+/// Number is in the set of 4..=8
 
 #[inline]
 pub fn generate_synthwave_melody_length() -> usize {
-    rand::thread_rng().gen_range(3..=5)
+    rand::thread_rng().gen_range(4..=8)
 }
 
 /// Tries to get a note in the scale list by the given note
@@ -51,15 +51,13 @@ where
 fn rand_close_note(tonic_note: Note, scale_notes: &Vec<Note>, up_down_direction: u32) -> Note {
     match up_down_direction {
         DIRECTION_UP => get_scaled_from_index(tonic_note, scale_notes, |pos| {
-            let mut notes_dif = (1..=5).collect::<Vec<_>>();
+            let mut notes_dif = (0..=3).collect::<Vec<_>>();
             pos + random_from_vec(&mut notes_dif).unwrap()
         })
         .unwrap_or(tonic_note),
 
         DIRECTION_DOWN => {
-            let mut notes_dif = (1..=3).collect::<Vec<_>>();
-            let dif = random_from_vec(&mut notes_dif).unwrap();
-            get_scaled_from_index(tonic_note, scale_notes, |pos| pos - dif).unwrap_or(tonic_note)
+            get_scaled_from_index(tonic_note, scale_notes, |pos| pos - 1).unwrap_or(tonic_note)
         }
 
         _ => unreachable!(),
@@ -78,15 +76,15 @@ fn take_rand_close_note(
     scale_notes: &Vec<Note>,
     start_position: u32,
     len: DeltaTime,
-    bar_time: DeltaTime,
+    bpm: impl BPM,
     delay_ratio: u32,
 ) -> NoteData {
     NoteData::new(
         rand_close_note(tonic_note, scale_notes, rand::thread_rng().gen::<u32>() % 2),
         100,
-        get_bar_ratio(bar_time, start_position),
+        get_bar_ratio(bpm, start_position),
         len,
-        get_bar_ratio(bar_time, delay_ratio),
+        get_bar_ratio(bpm, delay_ratio),
     )
 }
 
@@ -105,83 +103,138 @@ pub fn generate_lead_melody_with_bpm_and_len(
     bpm: impl BPM,
     lead_len: usize,
 ) -> Vec<NoteData> {
-    let bar_time = bpm.bar_time().as_millis() as DeltaTime;
-    let single_len = get_bar_ratio(bar_time, 2);
-    let tonic_note = generate_tonic_lead_note(key, 100, single_len, 0);
+    let mut even_lens = vec![1, 2];
+    let mut odd_lens = vec![1, 3];
 
-    (2..16)
-        .step_by(1)
-        .fold(vec![tonic_note], |lead, position| {
-            push_next_note_or_skip(
-                bar_time,
-                single_len,
-                tonic_note,
-                scale_notes,
-                lead,
-                position,
-            )
-        })
-        .into_iter()
-        .take(lead_len)
-        .collect()
+    let tonic_len = random_from_vec(&mut even_lens).unwrap();
+    let tonic_time = get_bar_ratio(bpm, tonic_len);
+    let tonic_note = generate_tonic_lead_note(key, 100, tonic_time, 0);
+
+    let mut lead = vec![tonic_note];
+    let mut cur_pos = tonic_len;
+
+    while cur_pos < 16 && lead.len() < lead_len {
+        let prev_note = *lead.last().unwrap();
+
+        match cur_pos % 4 {
+            0 => {
+                let len = random_from_vec(&mut even_lens).unwrap();
+                let note_time = get_bar_ratio(bpm, len);
+
+                let next_note_mb =
+                    next_note_or_skip(bpm, note_time, tonic_note, scale_notes, prev_note, cur_pos);
+
+                match next_note_mb {
+                    None => cur_pos += 1,
+
+                    Some(next_note) => {
+                        cur_pos += len;
+                        lead.push(next_note)
+                    }
+                }
+            }
+
+            1 => {
+                let len = random_from_vec(&mut odd_lens).unwrap();
+                let note_time = get_bar_ratio(bpm, len);
+
+                let next_note_mb =
+                    next_note_or_skip(bpm, note_time, tonic_note, scale_notes, prev_note, cur_pos);
+
+                match next_note_mb {
+                    None => cur_pos += 1,
+
+                    Some(next_note) => {
+                        cur_pos += len;
+                        lead.push(next_note)
+                    }
+                }
+            }
+
+            2 => {
+                let len = random_from_vec(&mut even_lens).unwrap();
+                let note_time = get_bar_ratio(bpm, len);
+
+                let next_note_mb =
+                    next_note_or_skip(bpm, note_time, tonic_note, scale_notes, prev_note, cur_pos);
+
+                match next_note_mb {
+                    None => cur_pos += 1,
+
+                    Some(next_note) => {
+                        cur_pos += len;
+                        lead.push(next_note)
+                    }
+                }
+            }
+
+            3 => {
+                let note_time = get_bar_ratio(bpm, 1);
+
+                let next_note_mb =
+                    next_note_or_skip(bpm, note_time, tonic_note, scale_notes, prev_note, cur_pos);
+
+                cur_pos += 1;
+
+                if let Some(next_note) = next_note_mb {
+                    lead.push(next_note)
+                }
+            }
+
+            _ => unreachable!(),
+        }
+    }
+
+    lead
 }
 
 #[inline]
-fn push_next_note_or_skip(
-    bar_time: DeltaTime,
-    single_len: DeltaTime,
+fn next_note_or_skip(
+    bpm: impl BPM,
+    len: DeltaTime,
     tonic_note: NoteData,
     scale_notes: &Vec<Note>,
-    mut lead: Vec<NoteData>,
+    prev_note: NoteData,
     position: DeltaTime,
-) -> Vec<NoteData> {
-    let prev_note = *lead.last().unwrap();
-    let prev_note_start = prev_note.start() * 16 / bar_time;
-    let cur_delay = position - prev_note_start - 1;
+) -> Option<NoteData> {
+    let bar_time = bpm.bar_time().as_millis();
 
-    let mut push_next = || {
-        push_next_note(
-            bar_time,
-            single_len,
-            tonic_note,
-            scale_notes,
-            &mut lead,
-            position,
-            cur_delay,
-        )
-    };
+    let prev_note_start = prev_note.start() as f64 * 16.0 / bar_time as f64;
+    let prev_note_start = prev_note_start.round() as DeltaTime;
+
+    let prev_note_len = prev_note.length() as f64 * 16.0 / bar_time as f64;
+    let prev_note_len = prev_note_len.round() as DeltaTime;
+
+    let cur_delay = position - prev_note_start - prev_note_len;
+    let next = || next_note(bpm, len, tonic_note, scale_notes, position, cur_delay);
 
     match cur_delay {
-        4 => push_next(),
+        3 => Some(next()),
 
-        _ => {
-            if rand::thread_rng().gen_bool(0.5) {
-                push_next()
-            }
-        }
-    };
-
-    lead.into_iter().collect()
+        _ => match rand::thread_rng().gen_bool(0.75) {
+            true => Some(next()),
+            false => None,
+        },
+    }
 }
 
 #[inline]
-fn push_next_note(
-    bar_time: DeltaTime,
-    single_len: DeltaTime,
+fn next_note(
+    bpm: impl BPM,
+    len: DeltaTime,
     tonic_note: NoteData,
     scale_notes: &Vec<Note>,
-    lead: &mut Vec<NoteData>,
     position: DeltaTime,
     cur_delay: DeltaTime,
-) {
-    lead.push(take_rand_close_note(
+) -> NoteData {
+    take_rand_close_note(
         tonic_note.note(),
         scale_notes,
         position,
-        single_len,
-        bar_time,
+        len,
+        bpm,
         cur_delay,
-    ))
+    )
 }
 
 /// Generates tonic lead note with the given key.

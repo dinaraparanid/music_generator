@@ -50,7 +50,7 @@ impl Handler for MidiParser {
         // to construct start in NoteData
 
         self.delta_timer += delta_time;
-        println!("DELTA: {delta_time}, event: {}", *event);
+        // println!("DELTA: {delta_time}, event: {}", *event);
 
         match event {
             MidiEvent::NoteOn {

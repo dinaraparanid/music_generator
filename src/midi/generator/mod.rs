@@ -1,4 +1,4 @@
-use crate::notes::note_data::*;
+use crate::{midi::bpm::BPM, notes::note_data::*};
 use astro_float::{ctx::Context, Consts, RoundingMode};
 use rand::{prelude::SliceRandom, Rng};
 
@@ -64,8 +64,9 @@ fn randomize_with_pi(len: usize) -> Vec<u32> {
 /// Note that bar is divided into 16 parts
 
 #[inline]
-fn get_bar_ratio(bar_time: DeltaTime, ratio: u32) -> DeltaTime {
-    bar_time * ratio / 16
+fn get_bar_ratio(bpm: impl BPM, part: u32) -> DeltaTime {
+    let bar_time = bpm.bar_time().as_millis();
+    (bar_time as f64 * part as f64 / 16.0).round() as DeltaTime
 }
 
 trait FixedToTempoNoteData {

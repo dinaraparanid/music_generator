@@ -29,7 +29,6 @@ impl SynthwaveMelodyType {
         bpm: impl BPM,
     ) -> Vec<NoteData> {
         let melody_length = generate_synthwave_melody_length();
-        println!("MELODY LEN: {melody_length}");
 
         match self {
             SynthwaveMelodyType::ABAB => generate_abab_melody(key, scale_notes, bpm, melody_length),
@@ -48,9 +47,6 @@ fn generate_abab_melody(
 ) -> Vec<NoteData> {
     let a_melody = generate_lead_melody_with_bpm_and_len(key, scale_notes, bpm, melody_length);
     let b_melody = generate_lead_melody_with_bpm_and_len(key, scale_notes, bpm, melody_length);
-
-    println!("A MELODY {:?}", a_melody);
-    println!("B MELODY {:?}", b_melody);
 
     let a_delay = time_before_bar_end(*a_melody.last().unwrap(), bpm);
     let b_delay = time_before_bar_end(*b_melody.last().unwrap(), bpm);
@@ -78,7 +74,6 @@ fn generate_aaab_melody(
     bpm: impl BPM,
     melody_length: usize,
 ) -> Vec<NoteData> {
-    let melody_length = generate_synthwave_melody_length();
     let a_melody = generate_lead_melody_with_bpm_and_len(key, scale_notes, bpm, melody_length);
     let b_melody = generate_lead_melody_with_bpm_and_len(key, scale_notes, bpm, melody_length);
     let a_delay = time_before_bar_end(*a_melody.last().unwrap(), bpm);
@@ -106,7 +101,6 @@ fn generate_abac_melody(
     bpm: impl BPM,
     melody_length: usize,
 ) -> Vec<NoteData> {
-    let melody_length = generate_synthwave_melody_length();
     let a_melody = generate_lead_melody_with_bpm_and_len(key, scale_notes, bpm, melody_length);
     let b_melody = generate_lead_melody_with_bpm_and_len(key, scale_notes, bpm, melody_length);
     let c_melody = generate_lead_melody_with_bpm_and_len(key, scale_notes, bpm, melody_length);

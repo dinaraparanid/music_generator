@@ -9,12 +9,12 @@ pub trait BPM: Clone + Copy + Eq + Ord + Sized + Display {
 
     #[inline]
     fn bar_time(&self) -> Duration {
-        Duration::from_millis(self.tempo() / 250)
+        Duration::from_millis((self.tempo() as f64 / 250.0).round() as u64)
     }
 
     #[inline]
     fn tempo(&self) -> u64 {
-        60_000_000 / self.as_u64()
+        (60_000_000.0 / self.as_u64() as f64).round() as u64
     }
 }
 
