@@ -8,7 +8,7 @@ use crate::{
 
 use rand::Rng;
 
-use rust_music_theory::note::{Note as MTNote, Notes, PitchClass};
+use rust_music_theory::note::{Note as MTNote, PitchClass};
 
 pub const DIRECTION_UP: u32 = 0;
 pub const DIRECTION_DOWN: u32 = 1;
@@ -115,77 +115,56 @@ pub fn generate_lead_melody_with_bpm_and_len(
 
     while cur_pos < 16 && lead.len() < lead_len {
         let prev_note = *lead.last().unwrap();
+        let current_position = cur_pos;
 
-        match cur_pos % 4 {
-            0 => {
-                let len = random_from_vec(&mut even_lens).unwrap();
-                let note_time = get_bar_ratio(bpm, len);
+        let mut push_next = |lens: &mut Vec<DeltaTime>| {
+            push_next_note_or_skip(
+                bpm,
+                scale_notes,
+                lens,
+                &mut lead,
+                tonic_note,
+                prev_note,
+                &mut cur_pos,
+            )
+        };
 
-                let next_note_mb =
-                    next_note_or_skip(bpm, note_time, tonic_note, scale_notes, prev_note, cur_pos);
-
-                match next_note_mb {
-                    None => cur_pos += 1,
-
-                    Some(next_note) => {
-                        cur_pos += len;
-                        lead.push(next_note)
-                    }
-                }
-            }
-
-            1 => {
-                let len = random_from_vec(&mut odd_lens).unwrap();
-                let note_time = get_bar_ratio(bpm, len);
-
-                let next_note_mb =
-                    next_note_or_skip(bpm, note_time, tonic_note, scale_notes, prev_note, cur_pos);
-
-                match next_note_mb {
-                    None => cur_pos += 1,
-
-                    Some(next_note) => {
-                        cur_pos += len;
-                        lead.push(next_note)
-                    }
-                }
-            }
-
-            2 => {
-                let len = random_from_vec(&mut even_lens).unwrap();
-                let note_time = get_bar_ratio(bpm, len);
-
-                let next_note_mb =
-                    next_note_or_skip(bpm, note_time, tonic_note, scale_notes, prev_note, cur_pos);
-
-                match next_note_mb {
-                    None => cur_pos += 1,
-
-                    Some(next_note) => {
-                        cur_pos += len;
-                        lead.push(next_note)
-                    }
-                }
-            }
-
-            3 => {
-                let note_time = get_bar_ratio(bpm, 1);
-
-                let next_note_mb =
-                    next_note_or_skip(bpm, note_time, tonic_note, scale_notes, prev_note, cur_pos);
-
-                cur_pos += 1;
-
-                if let Some(next_note) = next_note_mb {
-                    lead.push(next_note)
-                }
-            }
-
+        match current_position % 4 {
+            0 => push_next(&mut even_lens),
+            1 => push_next(&mut odd_lens),
+            2 => push_next(&mut even_lens),
+            3 => push_next(&mut vec![1]),
             _ => unreachable!(),
         }
     }
 
     lead
+}
+
+#[inline]
+fn push_next_note_or_skip(
+    bpm: impl BPM,
+    scale_notes: &Vec<Note>,
+    lens: &mut Vec<u32>,
+    lead: &mut Vec<NoteData>,
+    tonic_note: NoteData,
+    prev_note: NoteData,
+    cur_pos: &mut DeltaTime,
+) {
+    let len = random_from_vec(lens).unwrap();
+    let note_time = get_bar_ratio(bpm, len);
+
+    let next_note_mb =
+        next_note_or_skip(bpm, note_time, tonic_note, scale_notes, prev_note, *cur_pos);
+
+    match next_note_mb {
+        None => *cur_pos += 1,
+
+        Some(next_note) => {
+            *cur_pos += len;
+            lead.push(next_note)
+        }
+    }
 }
 
 #[inline]
