@@ -67,6 +67,19 @@ pub fn is_not_too_big_parts(lead: &Vec<NoteData>) -> bool {
 }
 
 #[inline]
+pub fn is_not_bad_rhythm_with_odd_notes(lead: &Vec<NoteData>) -> bool {
+    lead.iter()
+        .map(|x| (x.start() / 32 % 2, x.delay() / 32 % 2))
+        .find(|(start, delay)| *start == 1 && *delay == 1)
+        .is_none()
+}
+
+#[inline]
+pub fn is_at_least_one_zero_delay(lead: &Vec<NoteData>) -> bool {
+    lead.iter().map(|x| x.delay()).find(|x| *x == 0).is_some()
+}
+
+#[inline]
 pub fn is_not_many_delays(lead: &Vec<NoteData>) -> bool {
     lead.iter().map(|x| x.delay()).filter(|d| *d != 0).count() < 4
 }

@@ -15,6 +15,8 @@ use music_generator::{
 };
 
 use rust_music_theory::{note::Notes, scale::*};
+use std::fs::File;
+use std::io::Write;
 use std::{fmt::Debug, path::Path};
 
 #[inline]
@@ -131,6 +133,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     midi_writer.push(&end_of_track_msg);
 
     std::fs::create_dir("./generated").unwrap_or_default();
+
+    let mut file = File::create("track_settings.txt")?;
+    let track_settings = format!("{key}\n{scale}\n{mode}\n{:?}\n{bpm}", melody_type);
+    file.write_all(track_settings.as_bytes())?;
 
     let path = format!("./generated/{}-{}BPM-{}.mid", key, bpm, Local::now());
     let path = Path::new(path.as_str());

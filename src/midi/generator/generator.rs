@@ -50,7 +50,7 @@ where
 fn rand_close_note(tonic_note: Note, scale_notes: &Vec<Note>, up_down_direction: u32) -> Note {
     match up_down_direction {
         DIRECTION_UP => map_index(tonic_note, scale_notes, |pos| {
-            let mut notes_dif = (0..=3).collect::<Vec<_>>();
+            let mut notes_dif = (1..=3).collect::<Vec<_>>();
             pos + random_from_vec(&mut notes_dif).unwrap()
         })
         .unwrap_or(tonic_note),
@@ -98,8 +98,9 @@ pub fn generate_lead_melody_with_bpm_and_len(
     scale_notes: &Vec<Note>,
     lead_len: usize,
 ) -> Vec<NoteData> {
+    let mut full_lens = vec![1, 2, 4];
     let mut even_lens = vec![1, 2];
-    let mut odd_lens = vec![1, 3];
+    let mut odd_lens = vec![1];
 
     let tonic_len = random_from_vec(&mut even_lens).unwrap();
     let tonic_time = get_bar_ratio(tonic_len);
@@ -112,7 +113,7 @@ pub fn generate_lead_melody_with_bpm_and_len(
         let prev_note = *lead.last().unwrap();
         let current_position = cur_pos;
 
-        let mut push_next = |lens: &mut Vec<DeltaTime>| {
+        let mut push_next_mb = |lens: &mut Vec<DeltaTime>| {
             push_next_note_or_skip(
                 scale_notes,
                 lens,
@@ -124,10 +125,10 @@ pub fn generate_lead_melody_with_bpm_and_len(
         };
 
         match current_position % 4 {
-            0 => push_next(&mut even_lens),
-            1 => push_next(&mut odd_lens),
-            2 => push_next(&mut even_lens),
-            3 => push_next(&mut vec![1]),
+            0 => push_next_mb(&mut full_lens),
+            1 => push_next_mb(&mut odd_lens),
+            2 => push_next_mb(&mut even_lens),
+            3 => push_next_mb(&mut odd_lens),
             _ => unreachable!(),
         }
     }
@@ -175,7 +176,7 @@ fn next_note_or_skip(
     match cur_delay {
         3 => Some(next()),
 
-        _ => match rand::thread_rng().gen_bool(0.75) {
+        _ => match rand::thread_rng().gen_bool(0.25) {
             true => Some(next()),
             false => None,
         },
@@ -259,11 +260,13 @@ pub fn randomize_note(note: NoteData, scale_notes: &Vec<Note>) -> NoteData {
     let direction = random_from_vec(&mut vec![DIRECTION_UP, DIRECTION_DOWN]).unwrap();
     let new_note = randomize_note_with_given_diff(note, scale_notes, direction, diff);
 
-    if new_note.delay() > 0 && rand::thread_rng().gen_bool(0.75) {
+    /*if new_note.delay() >= 32 && rand::thread_rng().gen_bool(0.75) {
         new_note.clone_with_new_delay(new_note.delay() - 32)
     } else {
         new_note
-    }
+    }*/
+
+    new_note
 }
 
 /// Randomizes lead by increasing or decreasing

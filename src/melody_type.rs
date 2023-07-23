@@ -48,6 +48,8 @@ impl SynthwaveMelodyType {
         if is_without_three_times_repetition(&lead)
             && is_distance_between_notes_not_big(&lead)
             && is_not_too_big_parts(&lead)
+            && is_not_bad_rhythm_with_odd_notes(&lead)
+            && is_at_least_one_zero_delay(&lead)
         {
             Some(lead)
         } else {
