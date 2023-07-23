@@ -66,7 +66,7 @@ where
 }
 
 #[inline]
-pub fn change_channel(midi_msg: &Message, channel: u8) -> Message {
+pub fn change_note_msg_channel(midi_msg: &Message, channel: u8) -> Message {
     match midi_msg {
         Message::MidiEvent {
             delta_time,

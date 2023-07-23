@@ -1,4 +1,5 @@
 use crate::melody_type::SynthwaveMelodyType;
+
 use rust_music_theory::{
     note::PitchClass,
     scale::{Mode, ScaleType},

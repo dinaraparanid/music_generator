@@ -12,8 +12,8 @@ use rand::Rng;
 use rust_music_theory::note::PitchClass;
 
 mod crossover;
-mod fitness;
-mod mutation;
+pub mod fitness;
+pub mod mutation;
 mod selection;
 
 const MAX_GENERATIONS: usize = 100;
@@ -105,7 +105,7 @@ fn initial_population(
     melody_type: SynthwaveMelodyType,
 ) -> LeadPopulation {
     (0..)
-        .map(|_| melody_type.generate_synthwave_melody(key, scale_notes, bpm))
+        .map(|_| melody_type.generate_synthwave_melody(key, scale_notes))
         .take(1000)
         .collect::<Vec<_>>()
 }

@@ -63,7 +63,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("SCALE NOTES: {:?}\n", scale_notes);
 
     let bpm = generate_bpm();
-    let generated_lead = melody_type.generate_synthwave_melody(key, &scale_notes, bpm);
+    let generated_lead = melody_type.generate_synthwave_melody(key, &scale_notes);
 
     println!("BPM: {}", bpm);
     println!("LEAD: {:?}", generated_lead);
@@ -92,7 +92,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let lead_instrument_msg = Message::MidiEvent {
         delta_time: 0,
-        event: MidiEvent::ProgramChange { ch: 0, program: 62 },
+        event: MidiEvent::ProgramChange { ch: 0, program: 5 },
     };
 
     let reverb_effect_msg = Message::MidiEvent {
@@ -115,8 +115,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Initialise MIDI file with tempo and instrument
 
+    midi_writer.format(1);
+    midi_writer.time_base(128);
     midi_writer.push(&tempo_msg);
     midi_writer.push(&end_of_track_msg);
+
+    println!("\n\nMESSAGES: {:?}", lead_midi_messages);
 
     // Pushes lead messages to the event holder
     midi_writer.push(&track_change_msg);

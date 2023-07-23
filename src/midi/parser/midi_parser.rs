@@ -1,4 +1,5 @@
 use crate::notes::{note::Note, note_data::*};
+use ghakuf::messages::MetaEvent;
 use ghakuf::{messages::MidiEvent, reader::Handler};
 use itertools::Itertools;
 use std::collections::{BTreeMap, HashMap};
@@ -45,12 +46,25 @@ impl MidiParser {
 
 impl Handler for MidiParser {
     #[inline]
+    fn header(&mut self, format: u16, track: u16, time_base: u16) {
+        println!("HEADER; FORMAT: {format} TRACK {track} TIME BASE {time_base}");
+    }
+
+    #[inline]
+    fn meta_event(&mut self, delta_time: u32, event: &MetaEvent, data: &Vec<u8>) {
+        println!(
+            "META; DELTA {delta_time} EVENT: {} DATA: {:?}",
+            *event, *data
+        );
+    }
+
+    #[inline]
     fn midi_event(&mut self, delta_time: u32, event: &MidiEvent) {
         // Increases whole file's timer
         // to construct start in NoteData
 
         self.delta_timer += delta_time;
-        // println!("DELTA: {delta_time}, event: {}", *event);
+        println!("MIDI; DELTA: {delta_time}, event: {}", *event);
 
         match event {
             MidiEvent::NoteOn {

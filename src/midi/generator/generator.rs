@@ -10,9 +10,8 @@ use rand::Rng;
 
 use rust_music_theory::note::{Note as MTNote, PitchClass};
 
-pub const DIRECTION_UP: u32 = 0;
-pub const DIRECTION_DOWN: u32 = 1;
-const DIRECTION_STAY: u32 = 2;
+const DIRECTION_UP: u32 = 0;
+const DIRECTION_DOWN: u32 = 1;
 
 #[inline]
 pub fn generate_bpm() -> impl BPM {
@@ -34,7 +33,7 @@ pub fn generate_synthwave_melody_length() -> usize {
 /// get note in scale list with transform(index) position
 
 #[inline]
-fn get_scaled_from_index<F>(tonic_note: Note, scale_notes: &Vec<Note>, transform: F) -> Option<Note>
+fn map_index<F>(tonic_note: Note, scale_notes: &Vec<Note>, transform: F) -> Option<Note>
 where
     F: Fn(usize) -> usize,
 {
@@ -50,15 +49,13 @@ where
 #[inline]
 fn rand_close_note(tonic_note: Note, scale_notes: &Vec<Note>, up_down_direction: u32) -> Note {
     match up_down_direction {
-        DIRECTION_UP => get_scaled_from_index(tonic_note, scale_notes, |pos| {
+        DIRECTION_UP => map_index(tonic_note, scale_notes, |pos| {
             let mut notes_dif = (0..=3).collect::<Vec<_>>();
             pos + random_from_vec(&mut notes_dif).unwrap()
         })
         .unwrap_or(tonic_note),
 
-        DIRECTION_DOWN => {
-            get_scaled_from_index(tonic_note, scale_notes, |pos| pos - 1).unwrap_or(tonic_note)
-        }
+        DIRECTION_DOWN => map_index(tonic_note, scale_notes, |pos| pos - 1).unwrap_or(tonic_note),
 
         _ => unreachable!(),
     }
@@ -71,20 +68,19 @@ fn rand_close_note(tonic_note: Note, scale_notes: &Vec<Note>, up_down_direction:
 /// Note is always created with volume equal to 80. Direction is chosen randomly
 
 #[inline]
-fn take_rand_close_note(
+fn rand_close_note_data(
     tonic_note: Note,
     scale_notes: &Vec<Note>,
     start_position: u32,
     len: DeltaTime,
-    bpm: impl BPM,
     delay_ratio: u32,
 ) -> NoteData {
     NoteData::new(
         rand_close_note(tonic_note, scale_notes, rand::thread_rng().gen::<u32>() % 2),
         100,
-        get_bar_ratio(bpm, start_position),
+        get_bar_ratio(start_position),
         len,
-        get_bar_ratio(bpm, delay_ratio),
+        get_bar_ratio(delay_ratio),
     )
 }
 
@@ -100,14 +96,13 @@ fn take_rand_close_note(
 pub fn generate_lead_melody_with_bpm_and_len(
     key: PitchClass,
     scale_notes: &Vec<Note>,
-    bpm: impl BPM,
     lead_len: usize,
 ) -> Vec<NoteData> {
     let mut even_lens = vec![1, 2];
     let mut odd_lens = vec![1, 3];
 
     let tonic_len = random_from_vec(&mut even_lens).unwrap();
-    let tonic_time = get_bar_ratio(bpm, tonic_len);
+    let tonic_time = get_bar_ratio(tonic_len);
     let tonic_note = generate_tonic_lead_note(key, 100, tonic_time, 0);
 
     let mut lead = vec![tonic_note];
@@ -119,7 +114,6 @@ pub fn generate_lead_melody_with_bpm_and_len(
 
         let mut push_next = |lens: &mut Vec<DeltaTime>| {
             push_next_note_or_skip(
-                bpm,
                 scale_notes,
                 lens,
                 &mut lead,
@@ -143,7 +137,6 @@ pub fn generate_lead_melody_with_bpm_and_len(
 
 #[inline]
 fn push_next_note_or_skip(
-    bpm: impl BPM,
     scale_notes: &Vec<Note>,
     lens: &mut Vec<u32>,
     lead: &mut Vec<NoteData>,
@@ -152,10 +145,8 @@ fn push_next_note_or_skip(
     cur_pos: &mut DeltaTime,
 ) {
     let len = random_from_vec(lens).unwrap();
-    let note_time = get_bar_ratio(bpm, len);
-
-    let next_note_mb =
-        next_note_or_skip(bpm, note_time, tonic_note, scale_notes, prev_note, *cur_pos);
+    let note_time = get_bar_ratio(len);
+    let next_note_mb = next_note_or_skip(note_time, tonic_note, scale_notes, prev_note, *cur_pos);
 
     match next_note_mb {
         None => *cur_pos += 1,
@@ -169,23 +160,17 @@ fn push_next_note_or_skip(
 
 #[inline]
 fn next_note_or_skip(
-    bpm: impl BPM,
     len: DeltaTime,
     tonic_note: NoteData,
     scale_notes: &Vec<Note>,
     prev_note: NoteData,
     position: DeltaTime,
 ) -> Option<NoteData> {
-    let bar_time = bpm.bar_time().as_millis();
-
-    let prev_note_start = prev_note.start() as f64 * 16.0 / bar_time as f64;
-    let prev_note_start = prev_note_start.round() as DeltaTime;
-
-    let prev_note_len = prev_note.length() as f64 * 16.0 / bar_time as f64;
-    let prev_note_len = prev_note_len.round() as DeltaTime;
+    let prev_note_start = prev_note.start() / 32;
+    let prev_note_len = prev_note.length() / 32;
 
     let cur_delay = position - prev_note_start - prev_note_len;
-    let next = || next_note(bpm, len, tonic_note, scale_notes, position, cur_delay);
+    let next = || next_note(len, tonic_note, scale_notes, position, cur_delay);
 
     match cur_delay {
         3 => Some(next()),
@@ -199,21 +184,13 @@ fn next_note_or_skip(
 
 #[inline]
 fn next_note(
-    bpm: impl BPM,
     len: DeltaTime,
     tonic_note: NoteData,
     scale_notes: &Vec<Note>,
     position: DeltaTime,
     cur_delay: DeltaTime,
 ) -> NoteData {
-    take_rand_close_note(
-        tonic_note.note(),
-        scale_notes,
-        position,
-        len,
-        bpm,
-        cur_delay,
-    )
+    rand_close_note_data(tonic_note.note(), scale_notes, position, len, cur_delay)
 }
 
 /// Generates tonic lead note with the given key.
@@ -255,12 +232,11 @@ fn randomize_note_with_given_diff(
 ) -> NoteData {
     let note = match direction {
         DIRECTION_UP => note.clone_with_new_note(
-            get_scaled_from_index(note.note(), scale_notes, |pos| pos + diff)
-                .unwrap_or(note.note()),
+            map_index(note.note(), scale_notes, |pos| pos + diff).unwrap_or(note.note()),
         ),
 
         DIRECTION_DOWN => note.clone_with_new_note(
-            get_scaled_from_index(note.note(), scale_notes, |pos| pos - 1).unwrap_or(note.note()),
+            map_index(note.note(), scale_notes, |pos| pos - 1).unwrap_or(note.note()),
         ),
 
         _ => unreachable!(),
@@ -281,7 +257,13 @@ pub fn randomize_note(note: NoteData, scale_notes: &Vec<Note>) -> NoteData {
     let mut diffs = (0..=6).collect::<Vec<_>>();
     let diff = random_from_vec(&mut diffs).unwrap();
     let direction = random_from_vec(&mut vec![DIRECTION_UP, DIRECTION_DOWN]).unwrap();
-    randomize_note_with_given_diff(note, scale_notes, direction, diff)
+    let new_note = randomize_note_with_given_diff(note, scale_notes, direction, diff);
+
+    if new_note.delay() > 0 && rand::thread_rng().gen_bool(0.75) {
+        new_note.clone_with_new_delay(new_note.delay() - 32)
+    } else {
+        new_note
+    }
 }
 
 /// Randomizes lead by increasing or decreasing

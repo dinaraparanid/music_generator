@@ -1,9 +1,7 @@
 use crate::{
-    midi::{
-        bpm::BPM,
-        generator::generator::{
-            generate_lead_melody_with_bpm_and_len, generate_synthwave_melody_length,
-        },
+    genetic::{fitness::*, mutation::mutate},
+    midi::generator::generator::{
+        generate_lead_melody_with_bpm_and_len, generate_synthwave_melody_length,
     },
     notes::{
         note::Note,
@@ -26,14 +24,34 @@ impl SynthwaveMelodyType {
         &self,
         key: PitchClass,
         scale_notes: &Vec<Note>,
-        bpm: impl BPM,
     ) -> Vec<NoteData> {
+        match self.try_generate_synthwave_melody(key, scale_notes) {
+            None => self.generate_synthwave_melody(key, scale_notes),
+            Some(lead) => lead,
+        }
+    }
+
+    #[inline]
+    fn try_generate_synthwave_melody(
+        &self,
+        key: PitchClass,
+        scale_notes: &Vec<Note>,
+    ) -> Option<Vec<NoteData>> {
         let melody_length = generate_synthwave_melody_length();
 
-        match self {
-            SynthwaveMelodyType::ABAB => generate_abab_melody(key, scale_notes, bpm, melody_length),
-            SynthwaveMelodyType::AAAB => generate_aaab_melody(key, scale_notes, bpm, melody_length),
-            SynthwaveMelodyType::ABAC => generate_abac_melody(key, scale_notes, bpm, melody_length),
+        let lead = match self {
+            SynthwaveMelodyType::ABAB => generate_abab_melody(key, scale_notes, melody_length),
+            SynthwaveMelodyType::AAAB => generate_aaab_melody(key, scale_notes, melody_length),
+            SynthwaveMelodyType::ABAC => generate_abac_melody(key, scale_notes, melody_length),
+        };
+
+        if is_without_three_times_repetition(&lead)
+            && is_distance_between_notes_not_big(&lead)
+            && is_not_too_big_parts(&lead)
+        {
+            Some(lead)
+        } else {
+            None
         }
     }
 }
@@ -42,14 +60,13 @@ impl SynthwaveMelodyType {
 fn generate_abab_melody(
     key: PitchClass,
     scale_notes: &Vec<Note>,
-    bpm: impl BPM,
     melody_length: usize,
 ) -> Vec<NoteData> {
-    let a_melody = generate_lead_melody_with_bpm_and_len(key, scale_notes, bpm, melody_length);
-    let b_melody = generate_lead_melody_with_bpm_and_len(key, scale_notes, bpm, melody_length);
+    let a_melody = generate_lead_melody_with_bpm_and_len(key, scale_notes, melody_length);
+    let b_melody = mutate(a_melody.clone(), scale_notes, 0.75);
 
-    let a_delay = time_before_bar_end(*a_melody.last().unwrap(), bpm);
-    let b_delay = time_before_bar_end(*b_melody.last().unwrap(), bpm);
+    let a_delay = time_before_bar_end(*a_melody.last().unwrap());
+    let b_delay = time_before_bar_end(*b_melody.last().unwrap());
 
     let mut second_part = b_melody.clone();
     let first_note = second_part[0];
@@ -61,22 +78,29 @@ fn generate_abab_melody(
 
     let fourth_part = second_part.clone();
 
-    vec![a_melody, second_part, third_part, fourth_part]
+    let bar_4 = vec![a_melody, second_part, third_part, fourth_part]
         .into_iter()
         .flatten()
-        .collect()
+        .collect::<Vec<_>>();
+
+    let mut bar_8 = bar_4.clone();
+    let first_note = bar_8[0];
+    bar_8[0] = first_note.clone_with_new_delay(b_delay);
+
+    vec![bar_4, bar_8].into_iter().flatten().collect()
 }
 
 #[inline]
 fn generate_aaab_melody(
     key: PitchClass,
     scale_notes: &Vec<Note>,
-    bpm: impl BPM,
     melody_length: usize,
 ) -> Vec<NoteData> {
-    let a_melody = generate_lead_melody_with_bpm_and_len(key, scale_notes, bpm, melody_length);
-    let b_melody = generate_lead_melody_with_bpm_and_len(key, scale_notes, bpm, melody_length);
-    let a_delay = time_before_bar_end(*a_melody.last().unwrap(), bpm);
+    let a_melody = generate_lead_melody_with_bpm_and_len(key, scale_notes, melody_length);
+    let b_melody = generate_lead_melody_with_bpm_and_len(key, scale_notes, melody_length);
+
+    let a_delay = time_before_bar_end(*a_melody.last().unwrap());
+    let b_delay = time_before_bar_end(*b_melody.last().unwrap());
 
     let mut second_part = a_melody.clone();
     let first_note = second_part[0];
@@ -88,25 +112,31 @@ fn generate_aaab_melody(
     let first_note = fourth_part[0];
     fourth_part[0] = first_note.clone_with_new_delay(a_delay);
 
-    vec![a_melody, second_part, third_part, fourth_part]
+    let bar_4 = vec![a_melody, second_part, third_part, fourth_part]
         .into_iter()
         .flatten()
-        .collect()
+        .collect::<Vec<_>>();
+
+    let mut bar_8 = bar_4.clone();
+    let first_note = bar_8[0];
+    bar_8[0] = first_note.clone_with_new_delay(b_delay);
+
+    vec![bar_4, bar_8].into_iter().flatten().collect()
 }
 
 #[inline]
 fn generate_abac_melody(
     key: PitchClass,
     scale_notes: &Vec<Note>,
-    bpm: impl BPM,
     melody_length: usize,
 ) -> Vec<NoteData> {
-    let a_melody = generate_lead_melody_with_bpm_and_len(key, scale_notes, bpm, melody_length);
-    let b_melody = generate_lead_melody_with_bpm_and_len(key, scale_notes, bpm, melody_length);
-    let c_melody = generate_lead_melody_with_bpm_and_len(key, scale_notes, bpm, melody_length);
+    let a_melody = generate_lead_melody_with_bpm_and_len(key, scale_notes, melody_length);
+    let b_melody = generate_lead_melody_with_bpm_and_len(key, scale_notes, melody_length);
+    let c_melody = mutate(a_melody.clone(), scale_notes, 0.75);
 
-    let a_delay = time_before_bar_end(*a_melody.last().unwrap(), bpm);
-    let b_delay = time_before_bar_end(*b_melody.last().unwrap(), bpm);
+    let a_delay = time_before_bar_end(*a_melody.last().unwrap());
+    let b_delay = time_before_bar_end(*b_melody.last().unwrap());
+    let c_delay = time_before_bar_end(*c_melody.last().unwrap());
 
     let mut second_part = b_melody.clone();
     let first_note = second_part[0];
@@ -120,14 +150,19 @@ fn generate_abac_melody(
     let first_note = fourth_part[0];
     fourth_part[0] = first_note.clone_with_new_delay(a_delay);
 
-    vec![a_melody, second_part, third_part, fourth_part]
+    let bar_4 = vec![a_melody, second_part, third_part, fourth_part]
         .into_iter()
         .flatten()
-        .collect()
+        .collect::<Vec<_>>();
+
+    let mut bar_8 = bar_4.clone();
+    let first_note = bar_8[0];
+    bar_8[0] = first_note.clone_with_new_delay(c_delay);
+
+    vec![bar_4, bar_8].into_iter().flatten().collect()
 }
 
 #[inline]
-fn time_before_bar_end(last_note: NoteData, bpm: impl BPM) -> DeltaTime {
-    let bar_time = bpm.bar_time().as_millis() as DeltaTime;
-    bar_time - last_note.start() - last_note.length()
+fn time_before_bar_end(last_note: NoteData) -> DeltaTime {
+    512 - last_note.start() - last_note.length()
 }
