@@ -77,7 +77,7 @@ fn rand_close_note_data(
 ) -> NoteData {
     NoteData::new(
         rand_close_note(tonic_note, scale_notes, rand::thread_rng().gen::<u32>() % 2),
-        100,
+        75,
         get_bar_ratio(start_position),
         len,
         get_bar_ratio(delay_ratio),
@@ -104,7 +104,7 @@ pub fn generate_lead_melody_with_bpm_and_len(
 
     let tonic_len = random_from_vec(&mut even_lens).unwrap();
     let tonic_time = get_bar_ratio(tonic_len);
-    let tonic_note = generate_tonic_lead_note(key, 100, tonic_time, 0);
+    let tonic_note = generate_tonic_lead_note(key, 75, tonic_time, 0);
 
     let mut lead = vec![tonic_note];
     let mut cur_pos = tonic_len;

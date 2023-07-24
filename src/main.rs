@@ -100,7 +100,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         event: MidiEvent::ControlChange {
             ch: 0,
             control: 91,
-            data: 110,
+            data: 120,
         },
     };
 
