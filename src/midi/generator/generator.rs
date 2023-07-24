@@ -258,15 +258,7 @@ pub fn randomize_note(note: NoteData, scale_notes: &Vec<Note>) -> NoteData {
     let mut diffs = (0..=6).collect::<Vec<_>>();
     let diff = random_from_vec(&mut diffs).unwrap();
     let direction = random_from_vec(&mut vec![DIRECTION_UP, DIRECTION_DOWN]).unwrap();
-    let new_note = randomize_note_with_given_diff(note, scale_notes, direction, diff);
-
-    /*if new_note.delay() >= 32 && rand::thread_rng().gen_bool(0.75) {
-        new_note.clone_with_new_delay(new_note.delay() - 32)
-    } else {
-        new_note
-    }*/
-
-    new_note
+    randomize_note_with_given_diff(note, scale_notes, direction, diff)
 }
 
 /// Randomizes lead by increasing or decreasing

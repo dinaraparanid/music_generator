@@ -1,5 +1,5 @@
-D#
+G
 Diatonic
 Aeolian
-ABAB
-93
+ABAC
+97
