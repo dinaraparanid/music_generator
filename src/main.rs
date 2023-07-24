@@ -15,9 +15,7 @@ use music_generator::{
 };
 
 use rust_music_theory::{note::Notes, scale::*};
-use std::fs::File;
-use std::io::Write;
-use std::{fmt::Debug, path::Path};
+use std::{fmt::Debug, fs::File, io::Write, path::Path};
 
 #[inline]
 fn select_from_list<T: Clone + Debug>(inp_msg: &str, list: Vec<T>) -> T {
@@ -94,7 +92,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let lead_instrument_msg = Message::MidiEvent {
         delta_time: 0,
-        event: MidiEvent::ProgramChange { ch: 0, program: 5 },
+        event: MidiEvent::ProgramChange { ch: 0, program: 80 },
     };
 
     let reverb_effect_msg = Message::MidiEvent {
@@ -121,8 +119,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     midi_writer.time_base(128);
     midi_writer.push(&tempo_msg);
     midi_writer.push(&end_of_track_msg);
-
-    println!("\n\nMESSAGES: {:?}", lead_midi_messages);
 
     // Pushes lead messages to the event holder
     midi_writer.push(&track_change_msg);

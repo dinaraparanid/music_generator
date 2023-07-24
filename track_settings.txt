@@ -1,5 +1,5 @@
-F
+C
 Diatonic
-Ionian
+Aeolian
 ABAB
-112
+117
