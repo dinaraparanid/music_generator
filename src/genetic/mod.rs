@@ -58,7 +58,7 @@ async fn try_generate_lead_with_genetic_algorithm(
     let mut ideal_leads = extract_notes().await.ok()?;
     let (path, ideal_lead) = random_from_vec(&mut ideal_leads)?;
 
-    let population = initial_population(key, bpm, scale_notes, melody_type);
+    let population = initial_population(key, scale_notes, melody_type);
     let fitness_values = next_fitness(bpm, &population, &ideal_lead);
     let max_fit = max_fitness(&fitness_values);
     let population_size = population.len();
@@ -100,7 +100,6 @@ async fn try_generate_lead_with_genetic_algorithm(
 #[inline]
 fn initial_population(
     key: PitchClass,
-    bpm: impl BPM,
     scale_notes: &Vec<Note>,
     melody_type: SynthwaveMelodyType,
 ) -> LeadPopulation {

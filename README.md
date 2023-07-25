@@ -2,11 +2,19 @@
 
 ### Music generation app written on Rust
 
-Application produces MIDI files with the lead melody. 
-Generates both BPM (90..=120) and the lead melody.
+Application produces MIDI files with the 8 bar lead melody.
 User is free to manually choose any key,
 scale or mode with an input in the beginning of the program.
-For the lead melody, next algorithm is used:
+BPM is randomly chosen as value in range 90..=120
+
+Results are generated in *./generated* folder. Additional information
+(such as key, scale, mode, BPM, melody type) are saved in *./track_settings.txt*
+file. Some examples, as well as complete loops (with harmony, drums and arpeggio),
+can be found in the source code as *.mid* files
+
+### Generated SMF Melody Example
+
+![melody view](melody_view.png)
 
 ### Algorithm
 
@@ -21,3 +29,8 @@ For ABAC, ’B’ is new, ’C’ is the mutation of ’A’.
 
 Result is checked with the filters. Finally, all generated 4 bars are duplicated to
 generate 8 bar melody and settings file with chosen parameters is generated.
+
+### Report
+
+[Full report](IMG_Team_Project_Report.pdf) and the [presentation](IMG_Team_Project_Presentation.pptx) are available
+for the additional details and algorithms that are used to generate other batches
