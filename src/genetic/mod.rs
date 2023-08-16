@@ -20,6 +20,13 @@ const MAX_GENERATIONS: usize = 100;
 
 type LeadPopulation = Vec<Vec<NoteData>>;
 
+/// Generates synthwave-style 8 bar lead melody
+/// by the given key, BPM, scale and melody type
+/// from the .mid files of 'genetic_samples' folder
+/// with the given fitness and mutation rate.
+/// Generates melodies until fitness and mutation rate
+/// reaches desired bound
+
 #[inline]
 pub async fn generate_lead_with_genetic_algorithm(
     key: PitchClass,
@@ -45,6 +52,11 @@ pub async fn generate_lead_with_genetic_algorithm(
         }
     }
 }
+
+/// Attempts to generate synthwave-style 8 bar lead melody
+/// with the given key, BPM, scale and melody type
+/// from the .mid files of 'genetic_samples' folder
+/// with the given fitness and mutation rate.
 
 #[inline]
 async fn try_generate_lead_with_genetic_algorithm(
@@ -97,6 +109,9 @@ async fn try_generate_lead_with_genetic_algorithm(
         })
 }
 
+/// Generates 1000 synthwave-styled 8 bar leads
+/// by the given scale and the melody type
+
 #[inline]
 fn initial_population(
     key: PitchClass,
@@ -108,6 +123,10 @@ fn initial_population(
         .take(1000)
         .collect::<Vec<_>>()
 }
+
+/// Generates next population by crossovering random pairs
+/// of leads that were previously selected and mutating the result.
+/// With probability of 0.25, one parent can also be added to the next population
 
 #[inline]
 fn next_population(
@@ -123,6 +142,11 @@ fn next_population(
         .take(population_size)
         .collect::<Vec<_>>()
 }
+
+/// Generates entity for the next population by crossovering random pairs
+/// of leads that were previously selected and mutating the result.
+/// With probability of 0.25, one parent can also be added.
+/// In total, produces either 0, 1 or 2 leads
 
 #[inline]
 fn next_child_with_mb_parent(
@@ -145,6 +169,9 @@ fn next_child_with_mb_parent(
     Some(population)
 }
 
+/// Calculates fitness values for the given population
+/// by comparing it with the ideal lead
+
 #[inline]
 fn next_fitness(
     bpm: impl BPM,
@@ -156,6 +183,9 @@ fn next_fitness(
         .map(|lead| fitness(bpm, lead, &ideal_lead))
         .collect::<Vec<_>>()
 }
+
+/// Calculates maximum fitness value from the given fitness list.
+/// If list is empty, produces 0
 
 #[inline]
 fn max_fitness(fitness_values: &Vec<f32>) -> f32 {

@@ -1,6 +1,22 @@
 use crate::{midi::bpm::BPM, notes::note_data::NoteData, WithNextIterable};
 use itertools::Itertools;
 
+/// Calculates fitness function of the given lead
+/// by comparing it with the ideal lead.
+///
+/// Algorithm considers distances (pauses) between notes
+/// and gives 3/4 for the complete match only.
+/// Pitch coincidence is also taken into account and receives 1/4.
+/// Partial pitch coincidence is also considered.
+///
+/// Additionally, algorithm uses next filters:
+/// 1. Same note cannot repeat 3 times in a row
+/// 2. Distance between notes in semitones is less than 7
+/// 3. Parts with 7+ notes with zero delay are not allowed
+/// 4. Number of pauses is less than 4
+///
+/// Resulting fitness is in range 0..=1
+
 #[inline]
 pub fn fitness(bpm: impl BPM, lead: &Vec<NoteData>, ideal_lead: &Vec<NoteData>) -> f32 {
     let note_match_ratio = 1.0 / lead.len() as f32;
@@ -36,6 +52,8 @@ pub fn fitness(bpm: impl BPM, lead: &Vec<NoteData>, ideal_lead: &Vec<NoteData>) 
     }
 }
 
+/// Same note cannot repeat 3 times in a row
+
 #[inline]
 pub fn is_without_three_times_repetition(lead: &Vec<NoteData>) -> bool {
     lead.windows(3)
@@ -49,11 +67,15 @@ pub fn is_without_three_times_repetition(lead: &Vec<NoteData>) -> bool {
         .is_none()
 }
 
+/// Distance between notes in semitones is less than 7
+
 #[inline]
 pub fn is_distance_between_notes_not_big(lead: &Vec<NoteData>) -> bool {
     lead.with_next()
         .all(|(next, prev)| next.note().midi().abs_diff(prev.note().midi()) < 7)
 }
+
+/// Parts with 7+ notes with zero delay are not allowed
 
 #[inline]
 pub fn is_not_too_big_parts(lead: &Vec<NoteData>) -> bool {
@@ -66,6 +88,9 @@ pub fn is_not_too_big_parts(lead: &Vec<NoteData>) -> bool {
         .is_none()
 }
 
+/// Notes with start and the delay both equal to 1/16 of bar are not allowed.
+/// | |N|?|?| - such 1/4 of bars are not allowed
+
 #[inline]
 pub fn is_not_bad_rhythm_with_odd_notes(lead: &Vec<NoteData>) -> bool {
     lead.iter()
@@ -74,15 +99,24 @@ pub fn is_not_bad_rhythm_with_odd_notes(lead: &Vec<NoteData>) -> bool {
         .is_none()
 }
 
+/// At least two notes go one after another without any pause
+
 #[inline]
 pub fn is_at_least_one_zero_delay(lead: &Vec<NoteData>) -> bool {
     lead.iter().map(|x| x.delay()).find(|x| *x == 0).is_some()
 }
 
+/// Number of pauses is less than 4
+
 #[inline]
 pub fn is_not_many_delays(lead: &Vec<NoteData>) -> bool {
     lead.iter().map(|x| x.delay()).filter(|d| *d != 0).count() < 4
 }
+
+/// Algorithm considers distances (pauses) between notes
+/// and gives 3/4 for the complete match only.
+/// Pitch coincidence is also taken into account and receives 1/4.
+/// Partial pitch coincidence is also considered
 
 #[inline]
 fn calc_fitness_for_next_note(

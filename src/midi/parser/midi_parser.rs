@@ -1,6 +1,10 @@
 use crate::notes::{note::Note, note_data::*};
-use ghakuf::messages::MetaEvent;
-use ghakuf::{messages::MidiEvent, reader::Handler};
+
+use ghakuf::{
+    messages::{MetaEvent, MidiEvent},
+    reader::Handler,
+};
+
 use itertools::Itertools;
 use std::collections::{BTreeMap, HashMap};
 

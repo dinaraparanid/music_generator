@@ -30,6 +30,19 @@ For ABAC, ’B’ is new, ’C’ is the mutation of ’A’.
 Result is checked with the filters. Finally, all generated 4 bars are duplicated to
 generate 8 bar melody and settings file with chosen parameters is generated.
 
+### Stack
+
+<ul>
+    <li>Rust 2021 standard (current project version - nightly 1.73.0)</li>
+    <li>Ghakuf (MIDI IO)</li>
+    <li>Futures</li>
+    <li>Monoio</li>
+    <li>Itertools</li>
+    <li>Rand</li>        
+    <li>Strum + strum macro</li>
+    <li>Astro float (PI number generation)</li>
+</ul>
+
 ### Report
 
 [Full report](IMG_Team_Project_Report.pdf) and the [presentation](IMG_Team_Project_Presentation.pptx) are available

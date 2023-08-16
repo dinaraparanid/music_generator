@@ -5,6 +5,10 @@ use crate::{
 
 use rand::Rng;
 
+/// Performs the lead mutation by randomizing notes' pitches.
+/// Every note may be randomized with probability equal to mutation rate.
+/// Generated notes' frequencies are belong to the given scale
+
 #[inline]
 pub fn mutate(lead: Vec<NoteData>, scale_notes: &Vec<Note>, mutation_rate: f32) -> Vec<NoteData> {
     let mut rng = rand::thread_rng();

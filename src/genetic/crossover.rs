@@ -2,11 +2,21 @@ use crate::WithNextIterable;
 use itertools::Itertools;
 use rand::Rng;
 
+/// Generates lead from two given leads by mixing them.
+/// Firstly, random number of crossover points (1..=4)
+/// are generated, then concrete parts between CO points
+/// are taken from the leads alternately.
+/// Generated lead is not guaranteed to have
+/// length equal to either first or second parents' lengths
+
 #[inline]
 pub fn crossover<T: Clone>(parent1: Vec<T>, parent2: Vec<T>) -> Vec<T> {
     let co_points = generate_co_points(parent1.len(), parent2.len());
     perform_crossover(parent1, parent2, co_points)
 }
+
+/// Generates random number of crossover points (1..=4) as indexes.
+/// Smallest lead's length is taken as the generation bound
 
 #[inline]
 fn generate_co_points(parent1_len: usize, parent2_len: usize) -> Vec<usize> {
@@ -21,6 +31,11 @@ fn generate_co_points(parent1_len: usize, parent2_len: usize) -> Vec<usize> {
         .sorted()
         .collect()
 }
+
+/// Performs crossover from two parent leads and given crossover points.
+/// Generated leads are started with the first parent's parts,
+/// then mixed as 2, 1, 2, 1, 2 ... Generated lead is not guaranteed to have
+/// length equal to either first or second parents' lengths
 
 #[inline]
 fn perform_crossover<T: Clone>(parent1: Vec<T>, parent2: Vec<T>, co_points: Vec<usize>) -> Vec<T> {
@@ -46,6 +61,10 @@ fn perform_crossover<T: Clone>(parent1: Vec<T>, parent2: Vec<T>, co_points: Vec<
     )
 }
 
+/// Extends currently generating lead with parts
+/// from either first or second parent.
+/// Chose is made considering the given index
+
 #[inline]
 fn extended_with_next_part<T: Clone>(
     mut acc: Vec<T>,
@@ -64,6 +83,8 @@ fn extended_with_next_part<T: Clone>(
     acc
 }
 
+/// Takes slice from the given parent
+
 #[inline]
 fn next_part<T: Clone>(parent: &Vec<T>, next_co_point: usize, prev_co_point: usize) -> Vec<T> {
     parent
@@ -73,6 +94,11 @@ fn next_part<T: Clone>(parent: &Vec<T>, next_co_point: usize, prev_co_point: usi
         .map(move |x| x.clone())
         .collect()
 }
+
+/// Extends currently generating crossover
+/// with the last part from either first or second parts.
+/// Chose is made considering the number of co points
+/// (even -> parent1, odd -> parent2)
 
 #[inline]
 fn extend_with_last_part<T: Clone>(
